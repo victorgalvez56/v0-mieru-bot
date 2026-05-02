@@ -1,35 +1,100 @@
-# v0-mieru-bot
+# Mieru-bot 見える
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
+**Accessibility reviews that make the invisible, visible.**
 
-## Built with v0
+A GitHub App that reviews every pull request for WCAG 2.1 violations using
+Claude. Lives where developers already work — no new tool to install,
+no dashboard to check.
 
-This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
+## Demo
 
-[Continue working on v0 →](https://v0.app/chat/projects/prj_ulZrB6rRgteC5n05mwfp8q1WkBlW)
+🌐 **Live:** https://v0-mieru-bot.vercel.app
+📦 **Demo repo:** https://github.com/victorgalvez56/a11y-bot-demo
+🤖 **Install:** https://github.com/apps/mieru-bot
 
-## Getting Started
+## Install (any repo)
 
-First, run the development server:
+1. Visit https://github.com/apps/mieru-bot
+2. Click **Install** → choose your repos
+3. Open a PR — Mieru reviews it automatically
+4. Or comment `@mieru review` to trigger manually
+
+## How it works
+
+1. Developer opens a pull request (or comments `@mieru review`)
+2. GitHub App webhook fires to `/api/github-webhook`
+3. Claude analyzes the diff with a WCAG 2.1 expert prompt
+4. Bot posts a structured review with severity badges, WCAG citations,
+   and code suggestions
+
+## Stack
+
+- **v0** for landing page generation
+- **Next.js 15** App Router on **Vercel**
+- **AI SDK 6** with `generateText` + `Output.object()`
+- **Claude** (claude-sonnet-4-5) as the reviewer
+- **@octokit/app** for GitHub App authentication
+- **Zod** for structured output validation
+
+## Track
+
+**Track 3 — Chat SDK Agents (Multiplataforma)**
+
+Today Mieru lives in GitHub. Tomorrow it posts blocker summaries in Slack
+and creates Linear issues — same codebase, multiple surfaces, via the
+Chat SDK adapter pattern.
+
+## Architecture
+
+The bot is a single Next.js API route (`/api/github-webhook`) that:
+
+1. Authenticates per-installation using `@octokit/app`
+2. Filters PR diffs to frontend files
+3. Calls Claude with a structured output schema (Zod)
+4. Posts a markdown-formatted comment with severity-coded issues
+
+No database. No queue. No cron. Stateless and serverless.
+
+## Setup for development
+
+Required env vars:
+
+| Variable | Description |
+|---|---|
+| `ANTHROPIC_API_KEY` | Anthropic API key |
+| `GITHUB_APP_ID` | GitHub App numeric ID |
+| `GITHUB_PRIVATE_KEY` | Full PEM contents of the App's private key |
+
+Local dev:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For local webhook testing, use [smee.io](https://smee.io) or `ngrok` to
+forward GitHub webhooks to `localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Why "Mieru"?
 
-## Learn More
+見える (mieru) — Japanese verb meaning *"to be visible, to be able to be seen."*
 
-To learn more, take a look at the following resources:
+Accessibility issues are invisible to developers without disabilities.
+Mieru surfaces them.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.
+## Roadmap
 
-<a href="https://v0.app/chat/api/kiro/clone/victorgalvez56/v0-mieru-bot" alt="Open in Kiro"><img src="https://pdgvvgmkdvyeydso.public.blob.vercel-storage.com/open%20in%20kiro.svg?sanitize=true" /></a>
+- [ ] Webhook signature verification (HMAC)
+- [ ] Per-installation configuration (severity thresholds, ignored rules)
+- [ ] Inline review comments on specific lines (not just PR-level)
+- [ ] Chat SDK adapters for Slack, Linear, Discord
+- [ ] Auto-fix mode: open PRs with the suggested code changes
+- [ ] WCAG 2.2 + WCAG 3.0 draft support
+
+## License
+
+MIT — use it, fork it, ship it.
+
+---
+
+Built for **v0 Build Week 2026** · Bogotá + Lima · May 2, 2026
