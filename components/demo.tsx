@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, MessageCircle, CheckCircle } from 'lucide-react'
+import { AlertCircle, MessageCircle, CheckCircle, Eye } from 'lucide-react'
 
 export function Demo() {
   return (
@@ -12,7 +12,7 @@ export function Demo() {
             Live demo
           </h2>
           <p className="text-lg text-neutral-400">
-            This is what a11y-bot's feedback looks like in your pull request
+            This is what Mieru-bot's feedback looks like in your pull request
           </p>
         </div>
 
@@ -21,16 +21,16 @@ export function Demo() {
           {/* Comment header */}
           <div className="border-b border-neutral-800 px-4 sm:px-6 py-4 bg-neutral-950">
             <div className="flex items-center gap-3">
-              {/* Bot avatar */}
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-black">a11y</span>
+              {/* Bot avatar - Eye icon */}
+              <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
+                <Eye className="w-5 h-5 text-white" />
               </div>
               <div>
                 <div className="text-sm font-semibold text-white">
-                  a11y-bot <span className="text-neutral-500 font-normal">@a11y-bot</span>
+                  mieru-bot <span className="text-neutral-500 font-normal">@mieru-bot</span>
                 </div>
                 <div className="text-xs text-neutral-500">
-                  Accessibility Review — <span className="text-yellow-400">3 issues found</span>
+                  Accessibility Review — <span className="text-red-400">3 issues found</span>
                 </div>
               </div>
             </div>
@@ -40,7 +40,7 @@ export function Demo() {
           <div className="p-4 sm:p-6 space-y-6">
             {/* Header message */}
             <p className="text-neutral-300 text-sm">
-              I found 3 accessibility issues in this PR. Please review and address them before merging.
+              I found 3 accessibility issues in this PR. Let me make them visible so you can fix them.
             </p>
 
             {/* Issue 1: BLOCKER */}

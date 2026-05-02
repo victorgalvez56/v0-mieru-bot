@@ -8,13 +8,14 @@ export function Footer() {
         <div className="grid md:grid-cols-2 gap-12 mb-12">
           {/* Left side: Main CTA */}
           <div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Ready to ship accessible code?
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-2">
+              Make accessibility visible.
             </h2>
+            <p className="text-sm text-red-400 mb-4 font-medium">Mieru — to see, to be seen, to be understood.</p>
             <p className="text-lg text-neutral-400 mb-6">
               Get started in minutes. No credit card required.
             </p>
-            <Button size="lg" className="bg-white text-black hover:bg-neutral-100 w-full sm:w-auto">
+            <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 w-full sm:w-auto">
               <Github className="w-5 h-5 mr-2" />
               Install from GitHub Marketplace
             </Button>
@@ -76,7 +77,7 @@ export function Footer() {
 
           {/* Copyright */}
           <div className="border-t border-neutral-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-neutral-500">
-            <div>© 2024 a11y-bot. All rights reserved.</div>
+            <div>© 2024 Mieru-bot. All rights reserved.</div>
             <div className="flex gap-6">
               <a href="#" className="hover:text-neutral-300 transition">Status</a>
               <a href="#" className="hover:text-neutral-300 transition">Feedback</a>
