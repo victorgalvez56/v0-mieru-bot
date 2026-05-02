@@ -61,6 +61,10 @@ const ReviewSchema = z.object({
 
 export async function POST(req: Request) {
   try {
+    console.log("ENV CHECK — GITHUB_APP_ID:", process.env.GITHUB_APP_ID ?? "UNDEFINED");
+    console.log("ENV CHECK — GITHUB_PRIVATE_KEY:", process.env.GITHUB_PRIVATE_KEY ? "SET" : "UNDEFINED");
+    console.log("ENV CHECK — OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "SET" : "UNDEFINED");
+
     const event = req.headers.get("x-github-event");
     const payload = await req.json();
 
