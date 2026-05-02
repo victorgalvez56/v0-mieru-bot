@@ -1,103 +1,146 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { Octokit } from "@octokit/rest";
+import { generateText, Output } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { z } from "zod";
 
-/**
- * GitHub Webhook Handler for Pull Request Events
- * 
- * This endpoint receives webhook notifications from GitHub when:
- * - Pull requests are opened
- * - Pull requests are synchronize (new commits pushed)
- * 
- * Current scope:
- * - Logs the webhook event
- * - Validates webhook signature (GitHub secret)
- * - Returns 200 OK to confirm receipt
- * 
- * Next steps:
- * - Integrate AI accessibility review logic
- * - Post review comments to PR using GitHub API
- * - Track reviewed PRs in database
- */
+const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
-export async function POST(request: NextRequest) {
+const SYSTEM = `Eres un experto en accesibilidad web (WCAG 2.1 AA).
+Analizas diffs de PRs y detectas violaciones de accesibilidad.
+
+Revisas:
+- Alt text en imágenes
+- Labels en form controls
+- ARIA roles/states/properties incorrectos o faltantes
+- Contraste de colores (estima desde el CSS)
+- Navegación por teclado (tabindex, onKeyDown faltante en handlers)
+- Semántica HTML (jerarquía de headings, landmarks, listas)
+- onClick en divs/spans sin equivalente de teclado
+- Lang attributes faltantes
+- Texto solo visual sin alternativa para screen readers
+
+Severidad:
+- blocker: bloquea uso para personas con discapacidad
+- warning: degrada experiencia significativamente  
+- suggestion: mejora opcional
+
+Sé directo, técnico, accionable. Cita la regla WCAG exacta.
+Score 0-100 según qué tan accesible está el código.`;
+
+const ReviewSchema = z.object({
+  summary: z.string(),
+  score: z.number().min(0).max(100),
+  issues: z.array(
+    z.object({
+      file: z.string(),
+      severity: z.enum(["blocker", "warning", "suggestion"]),
+      wcag: z.string(),
+      problem: z.string(),
+      fix: z.string(),
+      code_suggestion: z.string(),
+    }),
+  ),
+});
+
+export async function POST(req: Request) {
   try {
-    // Get the GitHub webhook secret from environment
-    const githubSecret = process.env.GITHUB_WEBHOOK_SECRET
+    const event = req.headers.get("x-github-event");
+    const payload = await req.json();
 
-    // Get the X-Hub-Signature-256 header from GitHub
-    const signature = request.headers.get('x-hub-signature-256')
-
-    // Log the event for debugging
-    const eventType = request.headers.get('x-github-event')
-    const deliveryId = request.headers.get('x-github-delivery')
-
-    console.log(`[GitHub Webhook] Event: ${eventType}, Delivery: ${deliveryId}`)
-
-    // TODO: Validate webhook signature if secret is configured
-    if (githubSecret && signature) {
-      // Webhook signature validation would go here
-      // Use crypto.timingSafeEqual to compare HMAC-SHA256 signatures
-      console.log('[GitHub Webhook] Signature validation pending implementation')
+    if (event !== "pull_request") return Response.json({ skipped: "not a PR" });
+    if (!["opened", "synchronize", "reopened"].includes(payload.action)) {
+      return Response.json({ skipped: payload.action });
     }
 
-    // Parse the request body
-    const payload = await request.json()
+    const [owner, name] = payload.repository.full_name.split("/");
+    const pr_number = payload.pull_request.number;
 
-    // Handle pull request events
-    if (eventType === 'pull_request') {
-      const action = payload.action
-      const pullRequest = payload.pull_request
+    const { data: files } = await octokit.pulls.listFiles({
+      owner,
+      repo: name,
+      pull_number: pr_number,
+    });
 
-      console.log(`[GitHub Webhook] PR ${pullRequest.number} - Action: ${action}`)
+    const diff = files
+      .filter((f) => /\.(tsx?|jsx?|html|css|vue|svelte)$/.test(f.filename))
+      .map((f) => `### ${f.filename}\n\`\`\`diff\n${f.patch || ""}\n\`\`\``)
+      .join("\n\n");
 
-      if (action === 'opened' || action === 'synchronize') {
-        // This is where the AI review logic will go
-        console.log(`[GitHub Webhook] PR #${pullRequest.number} ready for accessibility review`)
-        console.log(`[GitHub Webhook] Repository: ${payload.repository.full_name}`)
-        console.log(`[GitHub Webhook] Files changed: ${pullRequest.changed_files}`)
-
-        // TODO: Trigger accessibility review
-        // - Fetch changed files from the PR
-        // - Analyze HTML/JSX code for WCAG violations
-        // - Post review comment with findings
-      }
-
-      if (action === 'closed') {
-        console.log(`[GitHub Webhook] PR #${pullRequest.number} closed`)
-        // TODO: Clean up any temporary data if needed
-      }
+    if (!diff) {
+      await octokit.issues.createComment({
+        owner,
+        repo: name,
+        issue_number: pr_number,
+        body: "**Mieru-bot**: No frontend files changed. Skipping review.",
+      });
+      return Response.json({ ok: true, skipped: "no frontend files" });
     }
 
-    // Handle ping events (GitHub sends these to verify the webhook is working)
-    if (eventType === 'ping') {
-      console.log('[GitHub Webhook] Ping received - webhook is active')
-    }
+    const { output: review } = await generateText({
+      model: anthropic("claude-sonnet-4-5"),
+      output: Output.object({ schema: ReviewSchema }),
+      system: SYSTEM,
+      prompt: `Review this PR for accessibility issues:\n\n${diff}`,
+    });
 
-    // Always return 200 OK to confirm webhook receipt
-    return NextResponse.json(
-      { 
-        success: true,
-        message: 'Webhook received',
-        eventType,
-        deliveryId,
-      },
-      { status: 200 }
-    )
-  } catch (error) {
-    // Log the error for debugging
-    console.error('[GitHub Webhook] Error processing webhook:', error)
+    const sevEmoji = { blocker: "🚫", warning: "⚠️", suggestion: "💡" };
+    const sevLabel = {
+      blocker: "BLOCKER",
+      warning: "WARNING",
+      suggestion: "SUGGESTION",
+    };
 
-    // Return 500 to signal processing error, but GitHub will retry
-    return NextResponse.json(
-      { 
-        success: false,
-        error: 'Failed to process webhook',
-      },
-      { status: 500 }
-    )
+    const body = `## Mieru-bot review · 見える
+
+*Making the invisible visible.*
+
+**Score: ${review.score}/100**
+
+${review.summary}
+
+${
+  review.issues.length === 0
+    ? "✅ No accessibility issues detected."
+    : review.issues
+        .map(
+          (i) => `
+### ${sevEmoji[i.severity]} ${sevLabel[i.severity]} — ${i.wcag}
+**File:** \`${i.file}\`
+
+${i.problem}
+
+**Fix:** ${i.fix}
+
+\`\`\`tsx
+${i.code_suggestion}
+\`\`\`
+`,
+        )
+        .join("\n---\n")
+}
+
+---
+*Mieru 見える · Powered by Claude · v0 Build Week 2026*`;
+
+    await octokit.issues.createComment({
+      owner,
+      repo: name,
+      issue_number: pr_number,
+      body,
+    });
+
+    return Response.json({ ok: true, issues: review.issues.length });
+  } catch (err: any) {
+    console.error(err);
+    return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
-// Required: GitHub will send OPTIONS requests to validate the endpoint
-export async function OPTIONS() {
-  return NextResponse.json({}, { status: 200 })
+export async function GET() {
+  return Response.json({
+    status: "Mieru-bot is watching",
+    name: "mieru-bot",
+    kanji: "見える",
+    meaning: "to be visible / to be seen"
+  });
 }
