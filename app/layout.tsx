@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'a11y-bot - Accessibility Reviews on Every Pull Request',
-  description: 'Automated WCAG 2.1 accessibility reviews for GitHub pull requests. Catch color contrast, ARIA issues, alt text, and more—powered by AI.',
+  title: 'Mieru-bot 見える - Accessibility Reviews on Every Pull Request',
+  description: 'Automated WCAG 2.1 accessibility reviews for GitHub pull requests. Make the invisible visible with Mieru-bot—catch color contrast, ARIA issues, alt text, and more.',
   generator: 'v0.app',
   icons: {
     icon: [
