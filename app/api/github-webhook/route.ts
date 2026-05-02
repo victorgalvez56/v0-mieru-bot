@@ -59,12 +59,10 @@ const ReviewSchema = z.object({
   ),
 });
 
+type Review = z.infer<typeof ReviewSchema>;
+
 export async function POST(req: Request) {
   try {
-    console.log("ENV CHECK — GITHUB_APP_ID:", process.env.GITHUB_APP_ID ?? "UNDEFINED");
-    console.log("ENV CHECK — GITHUB_PRIVATE_KEY:", process.env.GITHUB_PRIVATE_KEY ? "SET" : "UNDEFINED");
-    console.log("ENV CHECK — OPENAI_API_KEY:", process.env.OPENAI_API_KEY ? "SET" : "UNDEFINED");
-
     const event = req.headers.get("x-github-event");
     const payload = await req.json();
 
@@ -79,7 +77,6 @@ export async function POST(req: Request) {
         return Response.json({ skipped: "no @mieru mention" });
       }
 
-      // Avoid loops: ignore bot's own comments
       if (payload.comment.user.type === "Bot") {
         return Response.json({ skipped: "bot comment" });
       }
@@ -89,16 +86,10 @@ export async function POST(req: Request) {
       const [owner, name] = payload.repository.full_name.split("/");
       const pr_number = payload.issue.number;
 
-      // Immediate 👀 reaction as feedback
       try {
         await octokit.request(
           "POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
-          {
-            owner,
-            repo: name,
-            comment_id: payload.comment.id,
-            content: "eyes",
-          },
+          { owner, repo: name, comment_id: payload.comment.id, content: "eyes" },
         );
       } catch (e) {
         console.warn("Could not add reaction:", e);
@@ -118,7 +109,7 @@ export async function POST(req: Request) {
 
 Hi! I review your code for accessibility issues. Here's what I can do:
 
-- \`@mieru review\` — Full WCAG 2.1 review of this PR
+- \`@mieru review\` — Full WCAG 2.1 review + auto-fix PR
 - \`@mieru help\` — Show this message
 
 Just mention me anywhere in this PR.`,
@@ -132,7 +123,6 @@ Just mention me anywhere in this PR.`,
         return Response.json({ ok: true, command: "review" });
       }
 
-      // Unknown command
       await octokit.request(
         "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
         {
@@ -171,14 +161,22 @@ async function runReview(
   name: string,
   pr_number: number,
 ) {
+  // Fetch PR details for branch info
+  const { data: prDetails } = await octokit.request(
+    "GET /repos/{owner}/{repo}/pulls/{pull_number}",
+    { owner, repo: name, pull_number: pr_number },
+  );
+  const headBranch = prDetails.head.ref;
+  const baseBranch = prDetails.base.ref;
+
   const { data: files } = await octokit.request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
     { owner, repo: name, pull_number: pr_number },
   );
 
   const FRONTEND_EXT = /\.(tsx?|jsx?|html|css|vue|svelte)$/;
-  const diff = files
-    .filter((f: any) => FRONTEND_EXT.test(f.filename))
+  const frontendFiles = files.filter((f: any) => FRONTEND_EXT.test(f.filename));
+  const diff = frontendFiles
     .map(
       (f: any) =>
         `### ${f.filename}\n\`\`\`diff\n${f.patch || "(no patch)"}\n\`\`\``,
@@ -236,6 +234,28 @@ ${i.code_suggestion}
           )
           .join("\n---\n");
 
+  // Create fix PR if there are issues
+  let fixPrUrl: string | null = null;
+  if (review.issues.length > 0) {
+    try {
+      fixPrUrl = await createFixPR(
+        octokit,
+        owner,
+        name,
+        pr_number,
+        review,
+        headBranch,
+        baseBranch,
+      );
+    } catch (e) {
+      console.warn("createFixPR failed:", e);
+    }
+  }
+
+  const fixSection = fixPrUrl
+    ? `\n\n🔧 **Auto-fix PR ready:** ${fixPrUrl}`
+    : "";
+
   const body = `## Mieru-bot review · 見える
 *Making the invisible visible.*
 
@@ -244,6 +264,7 @@ ${i.code_suggestion}
 ${review.summary}
 
 ${issuesMarkdown}
+${fixSection}
 
 ---
 *Mieru 見える · Powered by GPT-4o · v0 Build Week 2026*
@@ -254,6 +275,115 @@ ${issuesMarkdown}
     "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
     { owner, repo: name, issue_number: pr_number, body },
   );
+}
+
+async function createFixPR(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pr_number: number,
+  review: Review,
+  headBranch: string,
+  baseBranch: string,
+): Promise<string> {
+  const fixBranch = `mieru/fix-pr-${pr_number}`;
+
+  // Get HEAD SHA of the PR's source branch
+  const { data: headRef } = await octokit.request(
+    "GET /repos/{owner}/{repo}/git/ref/{ref}",
+    { owner, repo, ref: `heads/${headBranch}` },
+  );
+  const headSha = headRef.object.sha;
+
+  // Create fix branch (delete first if it already exists)
+  try {
+    await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
+      owner,
+      repo,
+      ref: `refs/heads/${fixBranch}`,
+      sha: headSha,
+    });
+  } catch {
+    await octokit.request("DELETE /repos/{owner}/{repo}/git/refs/{ref}", {
+      owner,
+      repo,
+      ref: `heads/${fixBranch}`,
+    });
+    await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
+      owner,
+      repo,
+      ref: `refs/heads/${fixBranch}`,
+      sha: headSha,
+    });
+  }
+
+  // Apply fixes per file
+  const filesWithIssues = [...new Set(review.issues.map((i) => i.file))];
+
+  for (const filename of filesWithIssues) {
+    const fileIssues = review.issues.filter((i) => i.file === filename);
+
+    try {
+      const { data: fileData } = await octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        { owner, repo, path: filename, ref: headBranch },
+      );
+
+      const currentContent = Buffer.from(
+        (fileData as any).content,
+        "base64",
+      ).toString("utf-8");
+
+      const { text: fixedContent } = await generateText({
+        model: openai("gpt-4o"),
+        system:
+          "You are a code editor. Apply all the accessibility fixes to the provided file. Return ONLY the complete fixed file content — no markdown, no explanations, no code fences.",
+        prompt: `File: ${filename}\n\nCurrent content:\n${currentContent}\n\nFixes to apply:\n${fileIssues
+          .map((i) => `- ${i.wcag}: ${i.fix}\n  Suggestion:\n${i.code_suggestion}`)
+          .join("\n\n")}\n\nReturn the complete fixed file only.`,
+      });
+
+      await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
+        owner,
+        repo,
+        path: filename,
+        message: `fix(a11y): apply WCAG fixes in ${filename}`,
+        content: Buffer.from(fixedContent.trim()).toString("base64"),
+        branch: fixBranch,
+        sha: (fileData as any).sha,
+      });
+    } catch (e) {
+      console.warn(`Could not fix ${filename}:`, e);
+    }
+  }
+
+  // Open fix PR
+  const issueList = review.issues
+    .map((i) => `- **${i.severity.toUpperCase()}** \`${i.file}\` — ${i.wcag}: ${i.fix}`)
+    .join("\n");
+
+  const { data: pr } = await octokit.request(
+    "POST /repos/{owner}/{repo}/pulls",
+    {
+      owner,
+      repo,
+      title: `fix(a11y): accessibility fixes from PR #${pr_number}`,
+      body: `## Automated accessibility fixes · Mieru-bot 見える
+
+This PR was created automatically after reviewing [#${pr_number}].
+
+### Fixes applied
+
+${issueList}
+
+---
+*Mieru 見える · Powered by GPT-4o · v0 Build Week 2026*`,
+      head: fixBranch,
+      base: baseBranch,
+    },
+  );
+
+  return pr.html_url;
 }
 
 export async function GET() {
