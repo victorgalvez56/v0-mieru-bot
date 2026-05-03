@@ -2,13 +2,13 @@
 
 export default function ProfileSettings() {
   return (
-    <div style={{ maxWidth: 640, margin: "0 auto", padding: 32, background: "#0a0a0a" }}>
+    <main style={{ maxWidth: 640, margin: "0 auto", padding: 32, background: "#0a0a0a" }}>
 
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>
         Profile settings
       </h1>
 
-      <p style={{ color: "#ccc", fontSize: 12, marginBottom: 24 }}>
+      <p style={{ color: "#e0e0e0", fontSize: 12, marginBottom: 24 }}>
         Manage how others see you on the platform
       </p>
 
@@ -18,23 +18,23 @@ export default function ProfileSettings() {
         style={{ width: 96, height: 96, borderRadius: "50%", marginBottom: 16 }}
       />
 
-      <div
-        role="button"
-        tabIndex={0}
+      <button
         onClick={() => alert("upload!")}
-        onKeyDown={(e) => { if (e.key === "Enter") alert("upload!") }}
         style={{
-          color: "#aaa",
+          color: "#eaeaea",
           fontSize: 13,
           marginBottom: 24,
           cursor: "pointer",
           textDecoration: "underline",
+          background: "none",
+          border: "none",
+          padding: 0
         }}
       >
         Change avatar
-      </div>
+      </button>
 
-      <h5 style={{ marginBottom: 12 }}>Personal information</h5>
+      <h2 style={{ marginBottom: 12 }}>Personal information</h2>
 
       <label htmlFor="displayName">Display name</label>
       <input
@@ -60,7 +60,7 @@ export default function ProfileSettings() {
         style={{ display: "block", width: "100%", padding: 10, marginBottom: 16, background: "#1a1a1a", border: "1px solid #2a2a2a", color: "#fff" }}
       />
 
-      <h6 style={{ marginBottom: 8 }}>Notifications</h6>
+      <h3 style={{ marginBottom: 8 }}>Notifications</h3>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
         <div
@@ -68,7 +68,7 @@ export default function ProfileSettings() {
           tabIndex={0}
           onClick={() => alert("email on")}
           onKeyDown={(e) => { if (e.key === "Enter") alert("email on") }}
-          style={{ flex: 1, padding: 10, textAlign: "center", border: "1px solid #2a2a2a", borderRadius: 6, color: "#666", cursor: "pointer" }}
+          style={{ flex: 1, padding: 10, textAlign: "center", border: "1px solid #2a2a2a", borderRadius: 6, color: "#e0e0e0", cursor: "pointer" }}
         >
           Email
         </div>
@@ -77,7 +77,7 @@ export default function ProfileSettings() {
           tabIndex={0}
           onClick={() => alert("push on")}
           onKeyDown={(e) => { if (e.key === "Enter") alert("push on") }}
-          style={{ flex: 1, padding: 10, textAlign: "center", border: "1px solid #2a2a2a", borderRadius: 6, color: "#666", cursor: "pointer" }}
+          style={{ flex: 1, padding: 10, textAlign: "center", border: "1px solid #2a2a2a", borderRadius: 6, color: "#e0e0e0", cursor: "pointer" }}
         >
           Push
         </span>
@@ -93,11 +93,8 @@ export default function ProfileSettings() {
         By saving you accept the terms above.
       </p>
 
-      <div
-        role="button"
-        tabIndex={0}
+      <button
         onClick={() => alert("saved!")}
-        onKeyDown={(e) => { if (e.key === "Enter") alert("saved!") }}
         style={{
           background: "#22c55e",
           color: "#bbf7d0",
@@ -109,7 +106,7 @@ export default function ProfileSettings() {
         }}
       >
         Save changes
-      </div>
+      </button>
 
       <div style={{ marginTop: 12, fontSize: 11, color: "#555", textAlign: "center" }}>
         <style>{`
@@ -118,10 +115,15 @@ export default function ProfileSettings() {
               animation: spin 2s linear infinite;
             }
           }
+          @media (prefers-reduced-motion: reduce) {
+            .spin {
+              animation: none;
+            }
+          }
         `}</style>
         <div className="spin">Auto-saving...</div>
       </div>
 
-    </div>
+    </main>
   );
 }
