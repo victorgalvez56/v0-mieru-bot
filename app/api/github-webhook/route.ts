@@ -22,6 +22,16 @@ function getApp() {
 const FRONTEND_EXT = /\.(tsx?|jsx?|html|css|vue|svelte|astro)$/;
 const BOT_LOGINS = ["mieru-bot", "mieru-bot[bot]"];
 
+// Matches @mieru-bot, @mierubot, @mieru_bot, and the common typo @mieru-but
+const MENTION_RE = /@mieru[-_]?b[uo]t\b|@mierubot\b/i;
+function isMieruMention(text: string): boolean {
+  return MENTION_RE.test(text);
+}
+function parseCommand(text: string): { cmd: string; arg?: string } {
+  const m = text.match(/@mieru[-_]?b[uo]t\s+(\w+)(?:\s+(.+))?/i) || text.match(/@mierubot\s+(\w+)(?:\s+(.+))?/i);
+  return { cmd: m?.[1]?.toLowerCase() || "review", arg: m?.[2]?.trim() };
+}
+
 // =============================================================================
 // Schemas
 // =============================================================================
@@ -139,6 +149,35 @@ Be concise, practical, and use code examples. Avoid jargon. The output is shown 
 // =============================================================================
 // Diff helpers — extract added lines with their line numbers in the new file
 // =============================================================================
+
+/**
+ * Format a file for the reviewer: full file with line numbers, with a `>` gutter
+ * marker on lines that were added/modified in the PR. Lines without `>` are
+ * existing context — visible to the model but NOT eligible for inline comments.
+ */
+function formatFileForReview(
+  filename: string,
+  content: string | null,
+  patch: string,
+): string {
+  if (!content) {
+    return `### ${filename}\n(file content unavailable; using diff)\n\n${annotatePatchWithLineNumbers(filename, patch)}`;
+  }
+  const addedLines = getAddedLineSet(patch);
+  const lines = content.split("\n");
+  const padWidth = String(lines.length).length;
+  const out: string[] = [
+    `### ${filename}`,
+    `(${addedLines.size} of ${lines.length} lines were added/modified — marked with > in the gutter. You may only comment on > lines.)`,
+    "",
+  ];
+  lines.forEach((line, idx) => {
+    const ln = idx + 1;
+    const marker = addedLines.has(ln) ? ">" : " ";
+    out.push(`${marker} ${String(ln).padStart(padWidth, " ")}: ${line}`);
+  });
+  return out.join("\n");
+}
 
 function annotatePatchWithLineNumbers(filename: string, patch: string): string {
   const lines = patch.split("\n");
@@ -267,7 +306,7 @@ export async function POST(req: Request) {
         return Response.json({ skipped: "not a PR comment" });
       }
       const comment = payload.comment.body as string;
-      if (!comment.toLowerCase().includes("@mieru-bot")) {
+      if (!isMieruMention(comment)) {
         return Response.json({ skipped: "no mention" });
       }
       if (payload.comment.user.type === "Bot") {
@@ -292,9 +331,7 @@ export async function POST(req: Request) {
         );
       } catch {}
 
-      const match = comment.toLowerCase().match(/@mieru-bot\s+(\w+)(?:\s+(.+))?/);
-      const cmd = match?.[1] || "review";
-      const arg = match?.[2]?.trim();
+      const { cmd, arg } = parseCommand(comment);
 
       console.log(`[chat] cmd=${cmd} arg=${arg ?? ""}`);
 
@@ -337,7 +374,7 @@ export async function POST(req: Request) {
     // ---------- pull_request_review_comment: replies inside an inline thread ----------
     if (event === "pull_request_review_comment" && payload.action === "created") {
       const comment = payload.comment.body as string;
-      if (!comment.toLowerCase().includes("@mieru-bot")) {
+      if (!isMieruMention(comment)) {
         return Response.json({ skipped: "no mention" });
       }
       if (payload.comment.user.type === "Bot") {
@@ -349,8 +386,7 @@ export async function POST(req: Request) {
       const [owner, name] = payload.repository.full_name.split("/");
       const pr_number = payload.pull_request.number;
 
-      const match = comment.toLowerCase().match(/@mieru-bot\s+(\w+)/);
-      const cmd = match?.[1] || "why";
+      const { cmd } = parseCommand(comment);
 
       try {
         await octokit.request(
@@ -514,19 +550,110 @@ async function runReview(
     return;
   }
 
-  const annotated = frontendFiles
-    .map((f: any) => annotatePatchWithLineNumbers(f.filename, f.patch || ""))
-    .join("\n\n");
+  // Fetch FULL file contents for changed files (not just the diff) so the
+  // model has complete context — especially for heading hierarchy, focus traps,
+  // semantic structure, and contrast pairs that may span the file.
+  console.log(`[runReview] fetching full content for ${frontendFiles.length} file(s)`);
+  const fullFiles = await Promise.all(
+    frontendFiles.map(async (f: any) => {
+      try {
+        const { data } = await octokit.request(
+          "GET /repos/{owner}/{repo}/contents/{path}",
+          { owner, repo: name, path: f.filename, ref: prDetails.head.sha },
+        );
+        const content = Buffer.from(
+          (data as any).content,
+          "base64",
+        ).toString("utf-8");
+        return { filename: f.filename, content, patch: f.patch || "" };
+      } catch {
+        return { filename: f.filename, content: null, patch: f.patch || "" };
+      }
+    }),
+  );
 
-  console.log(`[runReview] sending ${frontendFiles.length} file(s) to GPT-4o`);
+  const annotated = fullFiles
+    .map((f) => formatFileForReview(f.filename, f.content, f.patch))
+    .join("\n\n=====\n\n");
+
+  console.log(`[runReview] PASS 1 — initial review`);
   const { output: review } = await generateText({
     model: openai("gpt-4o"),
     output: Output.object({ schema: ReviewSchema }),
     system: REVIEW_SYSTEM,
-    prompt: `Review this PR for accessibility issues. Each line is annotated with [N] where N is the line number in the new file. Use those exact line numbers in the 'line' and 'end_line' fields.\n\n${annotated}`,
+    prompt: `Review this PR for accessibility issues.
+
+Each file shows: (a) the full file content with line numbers, and (b) which lines were added or modified (marked with > in the gutter). You may ONLY post inline comments on lines marked with >. Use those exact line numbers in 'line' and 'end_line'.
+
+Typical PRs of this size have 8-15 issues. If you find fewer than 5, you are likely missing some — go back and check every category in the checklist again.
+
+${annotated}`,
   });
 
-  console.log(`[runReview] got ${review.issues.length} issues, score ${review.score}`);
+  console.log(`[runReview] PASS 1 found ${review.issues.length} issues`);
+
+  // PASS 2 — Verification: ask the model what it missed.
+  // This catches the "GPT got bored after 5 issues" failure mode.
+  let allIssues = review.issues;
+  if (review.issues.length > 0) {
+    try {
+      console.log(`[runReview] PASS 2 — verification`);
+      const previousFindings = review.issues
+        .map((i) => `- ${i.file}:${i.line} — ${i.severity.toUpperCase()} ${i.wcag}: ${i.problem}`)
+        .join("\n");
+
+      const { output: verification } = await generateText({
+        model: openai("gpt-4o"),
+        output: Output.object({ schema: ReviewSchema }),
+        system: REVIEW_SYSTEM,
+        prompt: `You already reviewed this PR and found these issues:
+
+${previousFindings}
+
+Now do a SECOND PASS focused on what you missed. Common things models miss:
+- ALL color/background contrast pairs (every \`color:\` value, every text element)
+- Every \`<div onClick>\` AND every \`<span onClick>\` (not just the obvious one)
+- Heading hierarchy across the WHOLE file (h1 → h2 → h3 — count them)
+- Modals/dropdowns missing \`role="dialog"\`, \`aria-modal\`, focus trap, or ESC key handler
+- Animations and transitions that ignore \`prefers-reduced-motion\`
+- Empty button text (icon-only buttons need \`aria-label\`)
+- Form fields where \`placeholder\` is the only label
+
+Return ONLY NEW issues you missed. Do not repeat anything from the previous list. If you genuinely missed nothing, return issues: [].
+
+${annotated}`,
+      });
+
+      console.log(`[runReview] PASS 2 found ${verification.issues.length} additional issues`);
+
+      // Dedupe: drop any verification issues that overlap with pass 1 (same file+line+wcag prefix)
+      const seen = new Set(
+        review.issues.map((i) => `${i.file}:${i.line}:${i.wcag.split("·")[1]?.trim() || i.wcag}`),
+      );
+      const newIssues = verification.issues.filter((i) => {
+        const key = `${i.file}:${i.line}:${i.wcag.split("·")[1]?.trim() || i.wcag}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      allIssues = [...review.issues, ...newIssues];
+      // Recompute score given more issues
+      if (newIssues.length > 0) {
+        const sevWeight = { blocker: 15, warning: 7, suggestion: 2 };
+        const penalty = allIssues.reduce(
+          (acc, i) => acc + (sevWeight[i.severity] || 0),
+          0,
+        );
+        review.score = Math.max(0, 100 - penalty);
+      }
+    } catch (e) {
+      console.warn(`[runReview] verification pass failed:`, e);
+    }
+  }
+
+  review.issues = allIssues;
+  console.log(`[runReview] total issues after verification: ${review.issues.length}, score ${review.score}`);
 
   // Filter by config
   let filteredIssues = applyConfigFilter(review.issues, config);
@@ -639,7 +766,7 @@ async function postReviewWithInlineComments(
 ${review.summary}
 
 ---
-*Powered by GPT-4o · v0 Build Week 2026*`
+*Mieru-bot 見える · [Install on another repo](https://github.com/apps/mieru-bot) · [Configure with .mieru.yaml](https://github.com/apps/mieru-bot)*`
       : `## 👁️ Mieru-bot review · 見える
 *Making the invisible visible.*
 
@@ -669,7 +796,7 @@ I left **${review.issues.length} inline comment${review.issues.length === 1 ? ""
 - Comment \`@mieru-bot help\` for the full command list
 
 ---
-*Powered by GPT-4o · v0 Build Week 2026*`;
+*Mieru-bot 見える · [Install on another repo](https://github.com/apps/mieru-bot) · [Configure with .mieru.yaml](https://github.com/apps/mieru-bot)*`;
 
   // Build inline comments with suggestion blocks
   const comments = review.issues.map((i) => {
@@ -783,7 +910,7 @@ ${output.good_example}
 \`\`\`
 
 ---
-*Mieru-bot 見える · Powered by GPT-4o*`;
+*Mieru-bot 見える · [Install](https://github.com/apps/mieru-bot)*`;
 
   await octokit.request(
     "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
@@ -938,7 +1065,7 @@ auto_fix_pr: false               # set true to also open a PR with all fixes app
 \`\`\`
 
 ---
-*Mieru 見える · Powered by GPT-4o*`;
+*Mieru 見える · [Install](https://github.com/apps/mieru-bot)*`;
 
   await octokit.request(
     "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
@@ -1066,7 +1193,7 @@ Stacked fixes for **#${pr_number}**.
 ${issueList}
 
 ---
-*Mieru 見える · Powered by GPT-4o*`,
+*Mieru 見える · [Install](https://github.com/apps/mieru-bot)*`,
       head: fixBranch,
       base: headBranch,
     },
