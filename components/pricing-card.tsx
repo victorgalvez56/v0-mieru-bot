@@ -6,11 +6,11 @@ export default function PricingCard() {
 
       {/* Card 1: Starter */}
       <div style={{ flex: 1, padding: 24, border: "1px solid #2a2a2a", borderRadius: 8 }}>
-        <div style={{ fontSize: 14, color: "#ffffff", marginBottom: 4 }}>STARTER</div>
+        <h2 style={{ fontSize: 14, color: "#ffffff", marginBottom: 4 }}>STARTER</h2>
         <div style={{ fontSize: 36, fontWeight: 700, marginBottom: 8 }}>$9</div>
-        <p style={{ color: "#888", fontSize: 12, marginBottom: 16 }}>Per month, billed annually</p>
+        <p style={{ color: "#aaa", fontSize: 12, marginBottom: 16 }}>Per month, billed annually</p>
 
-        <img src="/starter-icon.png" alt="Starter package icon" style={{ width: 48, marginBottom: 16 }} />
+        <img src="/starter-icon.png" alt="Icon representing Starter package features" style={{ width: 48, marginBottom: 16 }} />
 
         <ul>
           <li>10 projects</li>
@@ -36,11 +36,11 @@ export default function PricingCard() {
 
       {/* Card 2: Pro */}
       <div style={{ flex: 1, padding: 24, border: "1px solid #2a2a2a", borderRadius: 8 }}>
-        <div style={{ fontSize: 14, color: "#ffffff", marginBottom: 4 }}>PRO</div>
+        <h2 style={{ fontSize: 14, color: "#ffffff", marginBottom: 4 }}>PRO</h2>
         <div style={{ fontSize: 36, fontWeight: 700, marginBottom: 8 }}>$29</div>
-        <p style={{ color: "#888", fontSize: 12, marginBottom: 16 }}>Per month, billed annually</p>
+        <p style={{ color: "#aaa", fontSize: 12, marginBottom: 16 }}>Per month, billed annually</p>
 
-        <img src="/pro-icon.png" alt="Pro package icon" style={{ width: 48, marginBottom: 16 }} />
+        <img src="/pro-icon.png" alt="Icon representing Pro package features" style={{ width: 48, marginBottom: 16 }} />
 
         <ul>
           <li>Unlimited projects</li>
@@ -64,7 +64,7 @@ export default function PricingCard() {
         </button>
       </div>
 
-      <div className="shimmer" style={{ position: "absolute", top: 8, right: 8, fontSize: 11, color: "#666" }}>
+      <div role="note" aria-label="Limited offer" className="shimmer" style={{ position: "absolute", top: 8, right: 8, fontSize: 11, color: "#666" }}>
         ✨ Limited offer
       </div>
 
@@ -72,6 +72,7 @@ export default function PricingCard() {
         @media (prefers-reduced-motion: no-preference) {
           .shimmer {
             animation: shimmer 1.5s infinite;
+            animation-play-state: paused;
           }
         }
       `}</style>
