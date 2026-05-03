@@ -2,6 +2,11 @@ import { App } from "@octokit/app";
 import { generateText, Output } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
+import yaml from "js-yaml";
+
+// =============================================================================
+// App initialization (lazy — env vars not available at build time)
+// =============================================================================
 
 let _app: App | null = null;
 function getApp() {
@@ -14,101 +19,257 @@ function getApp() {
   return _app;
 }
 
-const SYSTEM = `Eres Mieru-bot 見える, un experto en accesibilidad web (WCAG 2.1 nivel AA).
-Tu trabajo es analizar diffs de Pull Requests y detectar TODAS las violaciones de accesibilidad — sin excepción.
+const FRONTEND_EXT = /\.(tsx?|jsx?|html|css|vue|svelte|astro)$/;
+const BOT_LOGINS = ["mieru-bot", "mieru-bot[bot]"];
 
-REGLA #1: SÉ EXHAUSTIVO. No pares al encontrar 3-5 issues obvios. Revisa CADA línea, CADA elemento, CADA atributo del diff. Si ves 10 violaciones, reportas las 10. Si ves 20, reportas las 20. La completitud es más importante que la brevedad.
-
-PROCESO OBLIGATORIO — revisa cada categoría sistemáticamente, una por una:
-
-1. IMÁGENES Y MEDIA
-   - ¿Cada \`<img>\` tiene \`alt\`? (decorativo: \`alt=""\`, informativo: descripción)
-   - ¿\`<picture>\`, \`<svg>\` tienen alternativas accesibles?
-   - ¿\`<video>\`, \`<audio>\` tienen captions/transcripts?
-
-2. FORM CONTROLS
-   - ¿Cada \`<input>\`, \`<select>\`, \`<textarea>\` tiene \`<label>\` asociado o \`aria-label\`?
-   - ¿Los \`placeholder\` no se usan COMO label (siempre necesitan label además)?
-   - ¿\`<button>\` tiene texto accesible o \`aria-label\`?
-
-3. INTERACTIVIDAD Y TECLADO
-   - ¿Cada \`<div onClick>\` o \`<span onClick>\` tiene \`role\`, \`tabIndex={0}\`, Y \`onKeyDown\`?
-   - ¿Los elementos con \`outline: none\` tienen estado de focus visible alternativo?
-   - ¿\`<a href="#">\` con onClick deberían ser \`<button>\`?
-
-4. SEMÁNTICA Y ESTRUCTURA
-   - ¿La jerarquía de headings es correcta? (h1 → h2 → h3, no saltos)
-   - ¿Hay h1 en absoluto? ¿Hay landmarks (\`<main>\`, \`<nav>\`, \`<header>\`)?
-   - ¿\`<div>\` se usa donde debería ser \`<button>\`, \`<a>\`, \`<ul>\`?
-
-5. CONTRASTE DE COLOR
-   - Calcula contraste de CADA combinación de \`color\` + \`background\` que veas
-   - Texto normal: ratio ≥ 4.5:1 (AA) — menos = blocker o warning
-   - Texto grande (≥18pt): ratio ≥ 3:1
-   - Bordes/iconos UI: ratio ≥ 3:1
-
-6. ARIA Y SCREEN READERS
-   - ¿Hay \`aria-*\` mal usados o faltantes donde se necesitan?
-   - ¿\`<iframe>\` tiene \`title\`?
-   - ¿Texto solo visual (iconos, decoración) tiene alternativa para screen readers?
-
-7. INTERNACIONALIZACIÓN Y MOTION
-   - ¿\`<html>\` o secciones multilingüe tienen \`lang\`?
-   - ¿Animaciones (\`animation:\`, \`transition:\`) respetan \`prefers-reduced-motion\`?
-
-Severidad:
-- blocker: bloquea uso para personas con discapacidad (botón sin keyboard support, contraste <3:1, img sin alt informativo, iframe sin title)
-- warning: degrada experiencia significativamente (contraste 3:1-4.5:1, jerarquía rota, label faltante en input no crítico)
-- suggestion: mejora opcional (aria-label más descriptivo, prefers-reduced-motion en animación decorativa)
-
-Para cada issue:
-- Cita la regla WCAG EXACTA con número (ej: "WCAG 2.1 · 1.1.1 Non-text Content")
-- Explica el IMPACTO REAL en usuarios (ej: "Lectores de pantalla anunciarán 'imagen' sin contexto, perdiendo información del producto")
-- Da CÓDIGO CORREGIDO COMPLETO en code_suggestion — no descripción, código real listo para copiar
-
-Tono: directo, técnico, accionable. Sin adornos. Sin disculpas.
-Score 0-100 según qué tan accesible quedó el código del diff.
-Si no hay issues, devuelve issues: [] y score: 100.
-
-FORMATO DE TEXTO — IMPORTANTE:
-- Siempre usa backticks para mencionar tags HTML, props o código inline. Ejemplo: \`<h1>\`, \`alt\`, \`tabIndex\`.
-- Nunca uses tags HTML crudos (<h1>, <div>, etc.) dentro de los campos summary, problem o fix — solo dentro de code_suggestion.
-
-RECUERDA: tu valor está en encontrar TODO. Un developer prefiere 15 issues reales que 3 issues "limpios". No te auto-censures.`;
+// =============================================================================
+// Schemas
+// =============================================================================
 
 const ReviewSchema = z.object({
-  summary: z.string().describe("One paragraph summary of the review"),
+  summary: z.string().describe("Two-sentence walkthrough of what changed in this PR"),
+  walkthrough: z
+    .array(z.string())
+    .describe("3-5 bullets describing the high-impact accessibility findings"),
   score: z.number().min(0).max(100),
   issues: z.array(
     z.object({
-      file: z.string(),
+      file: z.string().describe("Exact file path from the diff"),
+      line: z
+        .number()
+        .describe("Line number in the new file where the issue starts (use the [N] markers)"),
+      end_line: z
+        .number()
+        .nullable()
+        .describe("If the issue spans multiple lines, the last line. Otherwise null."),
       severity: z.enum(["blocker", "warning", "suggestion"]),
-      wcag: z.string().describe("Exact WCAG rule citation"),
-      problem: z.string().describe("What's wrong and impact on users"),
-      fix: z.string().describe("Short description of the fix"),
-      code_suggestion: z.string().describe("Complete corrected code"),
+      wcag: z.string().describe("Exact WCAG citation, e.g. 'WCAG 2.1 · 1.1.1 Non-text Content'"),
+      problem: z
+        .string()
+        .describe("One sentence: what is wrong and impact on users with disabilities"),
+      suggested_code: z
+        .string()
+        .describe(
+          "EXACT replacement for the lines from `line` to `end_line`. Must be syntactically valid and ready to apply via GitHub suggestion block.",
+        ),
+      explanation: z
+        .string()
+        .describe("2-3 sentences for the 'why' deep-dive: who is affected and how"),
     }),
   ),
 });
 
 type Review = z.infer<typeof ReviewSchema>;
+type Issue = Review["issues"][number];
+
+const ExplainRuleSchema = z.object({
+  rule: z.string(),
+  what_it_means: z.string(),
+  who_it_affects: z.string(),
+  good_example: z.string(),
+  bad_example: z.string(),
+});
+
+// =============================================================================
+// System prompts
+// =============================================================================
+
+const REVIEW_SYSTEM = `You are Mieru-bot 見える, an expert in web accessibility (WCAG 2.1 level AA).
+Your job is to analyze a pull request diff and find EVERY accessibility violation.
+
+OUTPUT FORMAT — CRITICAL:
+- For each issue, you MUST identify the EXACT line number in the new file using the [N] markers shown in the input.
+- 'suggested_code' MUST be a complete, syntactically valid replacement for the lines from 'line' to 'end_line' (or just 'line' if single line). It will be applied directly via GitHub's suggestion block — no surrounding context, just the exact replacement.
+- If end_line is the same as line, set end_line to null.
+- Always use backticks for inline code mentions (\`<h1>\`, \`alt\`, etc.) in 'problem' and 'explanation' fields. Never raw HTML tags.
+
+RULE #1: BE EXHAUSTIVE. Don't stop at 3-5 obvious issues. Review every line, every element, every attribute. If you see 15 violations, report all 15.
+
+REQUIRED CHECKLIST — review each category systematically:
+
+1. IMAGES & MEDIA
+   - Every \`<img>\` has \`alt\` (decorative: \`alt=""\`, informative: descriptive)
+   - \`<picture>\`, \`<svg>\` have accessible alternatives
+   - \`<video>\`, \`<audio>\` have captions/transcripts
+
+2. FORM CONTROLS
+   - Every \`<input>\`, \`<select>\`, \`<textarea>\` has an associated \`<label>\` or \`aria-label\`
+   - \`placeholder\` is NEVER used as a label substitute
+   - \`<button>\` has accessible text or \`aria-label\`
+
+3. KEYBOARD INTERACTION
+   - Every \`<div onClick>\` or \`<span onClick>\` MUST have \`role\`, \`tabIndex={0}\`, AND \`onKeyDown\`
+   - Elements with \`outline: none\` need an alternative visible focus state
+   - \`<a href="#">\` with onClick should usually be \`<button>\`
+
+4. SEMANTIC STRUCTURE
+   - Heading hierarchy is correct (h1 → h2 → h3, no skips)
+   - Page has at least one \`<h1>\` and proper landmarks (\`<main>\`, \`<nav>\`, \`<header>\`)
+   - \`<div>\` is not used where \`<button>\`, \`<a>\`, \`<ul>\` should be
+
+5. COLOR CONTRAST
+   - Calculate contrast for EVERY color + background combo you see
+   - Normal text needs ratio ≥ 4.5:1 (AA) — less is blocker or warning
+   - Large text (≥18pt): ratio ≥ 3:1
+   - UI borders/icons: ratio ≥ 3:1
+
+6. ARIA & SCREEN READERS
+   - \`aria-*\` properly used and not missing where needed
+   - \`<iframe>\` has \`title\`
+   - Visual-only content (icons, decoration) has screen-reader alternative
+
+7. INTERNATIONALIZATION & MOTION
+   - \`<html>\` or multilingual sections have \`lang\`
+   - Animations (\`animation:\`, \`transition:\`) respect \`prefers-reduced-motion\`
+
+SEVERITY:
+- blocker: blocks usage for people with disabilities (no keyboard support, contrast <3:1, img missing informative alt, iframe without title)
+- warning: significantly degrades experience (contrast 3:1-4.5:1, broken heading hierarchy, missing label on non-critical input)
+- suggestion: optional improvement (more descriptive aria-label, prefers-reduced-motion on decorative animation)
+
+Tone: direct, technical, actionable. No fluff.
+Score 0-100 based on overall accessibility of the changed code.
+If no issues, return issues: [] and score: 100.
+
+Remember: your value is finding EVERYTHING. Developers prefer 15 real issues over 3 polished ones.`;
+
+const EXPLAIN_RULE_SYSTEM = `You are an accessibility educator. Explain a WCAG rule to a developer.
+Be concise, practical, and use code examples. Avoid jargon. The output is shown as a GitHub comment.`;
+
+// =============================================================================
+// Diff helpers — extract added lines with their line numbers in the new file
+// =============================================================================
+
+function annotatePatchWithLineNumbers(filename: string, patch: string): string {
+  const lines = patch.split("\n");
+  const out: string[] = [`### ${filename}`, ""];
+  let newLine = 0;
+
+  for (const line of lines) {
+    const hunkMatch = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunkMatch) {
+      newLine = parseInt(hunkMatch[1], 10) - 1;
+      out.push(`@@ hunk starting at line ${hunkMatch[1]} @@`);
+      continue;
+    }
+    if (line.startsWith("+++") || line.startsWith("---")) continue;
+    if (line.startsWith("+")) {
+      newLine++;
+      out.push(`[${newLine}] + ${line.slice(1)}`);
+    } else if (line.startsWith("-")) {
+      out.push(`      - ${line.slice(1)}`);
+    } else {
+      newLine++;
+      out.push(`[${newLine}]   ${line.slice(1)}`);
+    }
+  }
+  return out.join("\n");
+}
+
+function getAddedLineSet(patch: string): Set<number> {
+  const set = new Set<number>();
+  let newLine = 0;
+  for (const line of patch.split("\n")) {
+    const hunkMatch = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (hunkMatch) {
+      newLine = parseInt(hunkMatch[1], 10) - 1;
+      continue;
+    }
+    if (line.startsWith("+++") || line.startsWith("---")) continue;
+    if (line.startsWith("+")) {
+      newLine++;
+      set.add(newLine);
+    } else if (!line.startsWith("-")) {
+      newLine++;
+    }
+  }
+  return set;
+}
+
+function isAllDeletions(patch: string): boolean {
+  if (!patch) return false;
+  const lines = patch.split("\n");
+  let hasAddition = false;
+  for (const l of lines) {
+    if (l.startsWith("+++")) continue;
+    if (l.startsWith("+")) {
+      hasAddition = true;
+      break;
+    }
+  }
+  return !hasAddition;
+}
+
+// =============================================================================
+// Config (.mieru.yaml) — optional per-repo customization
+// =============================================================================
+
+type MieruConfig = {
+  auto_review?: boolean;
+  severity_threshold?: "blocker" | "warning" | "suggestion";
+  ignore_paths?: string[];
+  ignore_rules?: string[];
+  auto_fix_pr?: boolean;
+};
+
+async function loadConfig(
+  octokit: any,
+  owner: string,
+  repo: string,
+  ref?: string,
+): Promise<MieruConfig> {
+  for (const path of [".mieru.yaml", ".mieru.yml"]) {
+    try {
+      const params: any = { owner, repo, path };
+      if (ref) params.ref = ref;
+      const { data } = await octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        params,
+      );
+      const text = Buffer.from(data.content, "base64").toString("utf-8");
+      return (yaml.load(text) as MieruConfig) || {};
+    } catch {
+      // file doesn't exist, try next
+    }
+  }
+  return {};
+}
+
+function applyConfigFilter(issues: Issue[], config: MieruConfig): Issue[] {
+  const order = { blocker: 0, warning: 1, suggestion: 2 };
+  const minSev = config.severity_threshold || "suggestion";
+  return issues.filter((i) => {
+    if (order[i.severity] > order[minSev]) return false;
+    if (config.ignore_rules?.some((r) => i.wcag.includes(r))) return false;
+    if (
+      config.ignore_paths?.some((p) => {
+        const re = new RegExp(p.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*"));
+        return re.test(i.file);
+      })
+    )
+      return false;
+    return true;
+  });
+}
+
+// =============================================================================
+// Webhook handler
+// =============================================================================
 
 export async function POST(req: Request) {
   try {
     const event = req.headers.get("x-github-event");
     const payload = await req.json();
 
-    // Handler 1: comment with @mieru-bot in a PR
+    // ---------- issue_comment: chat commands at PR level ----------
     if (event === "issue_comment" && payload.action === "created") {
       if (!payload.issue.pull_request) {
         return Response.json({ skipped: "not a PR comment" });
       }
-
       const comment = payload.comment.body as string;
       if (!comment.toLowerCase().includes("@mieru-bot")) {
-        return Response.json({ skipped: "no @mieru-bot mention" });
+        return Response.json({ skipped: "no mention" });
       }
-
       if (payload.comment.user.type === "Bot") {
         return Response.json({ skipped: "bot comment" });
       }
@@ -118,56 +279,158 @@ export async function POST(req: Request) {
       const [owner, name] = payload.repository.full_name.split("/");
       const pr_number = payload.issue.number;
 
+      // Eyes reaction immediately
       try {
         await octokit.request(
           "POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
-          { owner, repo: name, comment_id: payload.comment.id, content: "eyes" },
-        );
-      } catch (e) {
-        console.warn("Could not add reaction:", e);
-      }
-
-      const cmd =
-        comment.toLowerCase().match(/@mieru-bot\s+(\w+)/)?.[1] || "review";
-
-      if (cmd === "help") {
-        await octokit.request(
-          "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
           {
             owner,
             repo: name,
-            issue_number: pr_number,
-            body: `## Mieru-bot · 見える
-
-Hi! I review your code for accessibility issues. Here's what I can do:
-
-- \`@mieru-bot review\` — Full WCAG 2.1 review + auto-fix PR
-- \`@mieru-bot help\` — Show this message
-
-Just mention me anywhere in this PR.`,
+            comment_id: payload.comment.id,
+            content: "eyes",
           },
         );
-        return Response.json({ ok: true, command: "help" });
-      }
+      } catch {}
 
-      if (cmd === "review") {
-        await runReview(octokit, owner, name, pr_number);
-        return Response.json({ ok: true, command: "review" });
-      }
+      const match = comment.toLowerCase().match(/@mieru-bot\s+(\w+)(?:\s+(.+))?/);
+      const cmd = match?.[1] || "review";
+      const arg = match?.[2]?.trim();
 
-      await octokit.request(
-        "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
-        {
-          owner,
-          repo: name,
-          issue_number: pr_number,
-          body: `Mieru-bot: I don't know the command \`${cmd}\`. Try \`@mieru-bot review\` or \`@mieru-bot help\`.`,
-        },
-      );
-      return Response.json({ ok: true, command: "unknown" });
+      console.log(`[chat] cmd=${cmd} arg=${arg ?? ""}`);
+
+      switch (cmd) {
+        case "review":
+          await runReview(octokit, owner, name, pr_number);
+          break;
+        case "summary":
+          await runReview(octokit, owner, name, pr_number, { summaryOnly: true });
+          break;
+        case "help":
+          await postHelp(octokit, owner, name, pr_number);
+          break;
+        case "explain":
+          await explainRule(octokit, owner, name, pr_number, arg || "WCAG 2.1");
+          break;
+        case "why":
+        case "ignore":
+          // These commands work better as inline thread replies; still respond at PR level
+          await postSimpleComment(
+            octokit,
+            owner,
+            name,
+            pr_number,
+            `\`@mieru-bot ${cmd}\` works best as a reply inside an inline review thread. Try replying directly to one of my line-level comments.`,
+          );
+          break;
+        default:
+          await postSimpleComment(
+            octokit,
+            owner,
+            name,
+            pr_number,
+            `Unknown command \`${cmd}\`. Try \`@mieru-bot help\`.`,
+          );
+      }
+      return Response.json({ ok: true, command: cmd });
     }
 
-    // Auto-review disabled — use @mieru-bot review in a PR comment to trigger manually
+    // ---------- pull_request_review_comment: replies inside an inline thread ----------
+    if (event === "pull_request_review_comment" && payload.action === "created") {
+      const comment = payload.comment.body as string;
+      if (!comment.toLowerCase().includes("@mieru-bot")) {
+        return Response.json({ skipped: "no mention" });
+      }
+      if (payload.comment.user.type === "Bot") {
+        return Response.json({ skipped: "bot comment" });
+      }
+
+      const installationId = payload.installation.id;
+      const octokit = await getApp().getInstallationOctokit(installationId);
+      const [owner, name] = payload.repository.full_name.split("/");
+      const pr_number = payload.pull_request.number;
+
+      const match = comment.toLowerCase().match(/@mieru-bot\s+(\w+)/);
+      const cmd = match?.[1] || "why";
+
+      try {
+        await octokit.request(
+          "POST /repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions",
+          {
+            owner,
+            repo: name,
+            comment_id: payload.comment.id,
+            content: "eyes",
+          },
+        );
+      } catch {}
+
+      switch (cmd) {
+        case "why":
+        case "explain":
+          await replyWhyInThread(octokit, owner, name, pr_number, payload.comment);
+          break;
+        case "ignore":
+          await replyIgnoreInThread(octokit, owner, name, pr_number, payload.comment);
+          break;
+        default:
+          await replyInThread(
+            octokit,
+            owner,
+            name,
+            pr_number,
+            payload.comment.id,
+            `Unknown command \`${cmd}\`. Try \`@mieru-bot why\` or \`@mieru-bot ignore\`.`,
+          );
+      }
+      return Response.json({ ok: true, inline: cmd });
+    }
+
+    // ---------- pull_request: auto-review + review_requested ----------
+    if (event === "pull_request") {
+      const installationId = payload.installation.id;
+      const octokit = await getApp().getInstallationOctokit(installationId);
+      const [owner, name] = payload.repository.full_name.split("/");
+      const pr_number = payload.pull_request.number;
+
+      // Bot was assigned as a reviewer
+      if (payload.action === "review_requested") {
+        const requested = payload.requested_reviewer;
+        if (
+          requested &&
+          BOT_LOGINS.some((b) => requested.login?.toLowerCase().includes(b.toLowerCase().split("[")[0]))
+        ) {
+          await runReview(octokit, owner, name, pr_number);
+          return Response.json({ ok: true, trigger: "review_requested" });
+        }
+        return Response.json({ skipped: "review requested for someone else" });
+      }
+
+      // Auto-review on open / sync / reopen (default ON, opt-out via .mieru.yaml)
+      if (["opened", "synchronize", "reopened"].includes(payload.action)) {
+        // Skip the bot's own PRs (avoid loops on fix PRs)
+        if (
+          payload.pull_request.user?.type === "Bot" ||
+          BOT_LOGINS.includes(payload.pull_request.user?.login)
+        ) {
+          return Response.json({ skipped: "PR opened by bot" });
+        }
+
+        const config = await loadConfig(
+          octokit,
+          owner,
+          name,
+          payload.pull_request.base.ref,
+        );
+        if (config.auto_review === false) {
+          return Response.json({ skipped: "auto_review disabled in .mieru.yaml" });
+        }
+
+        await runReview(octokit, owner, name, pr_number, { auto: true });
+        return Response.json({ ok: true, trigger: "auto" });
+      }
+
+      return Response.json({ skipped: payload.action });
+    }
 
     return Response.json({ skipped: event });
   } catch (err: any) {
@@ -176,54 +439,150 @@ Just mention me anywhere in this PR.`,
   }
 }
 
+// =============================================================================
+// Core review flow
+// =============================================================================
+
 async function runReview(
   octokit: any,
   owner: string,
   name: string,
   pr_number: number,
+  opts: { auto?: boolean; summaryOnly?: boolean } = {},
 ) {
-  // Fetch PR details for branch info
+  console.log(`[runReview] PR #${pr_number} (auto=${opts.auto ?? false})`);
+
   const { data: prDetails } = await octokit.request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}",
     { owner, repo: name, pull_number: pr_number },
   );
   const headBranch = prDetails.head.ref;
+  const headSha = prDetails.head.sha;
   const baseBranch = prDetails.base.ref;
+
+  const config = await loadConfig(octokit, owner, name, baseBranch);
 
   const { data: files } = await octokit.request(
     "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
     { owner, repo: name, pull_number: pr_number },
   );
 
-  const FRONTEND_EXT = /\.(tsx?|jsx?|html|css|vue|svelte)$/;
-  const frontendFiles = files.filter((f: any) => FRONTEND_EXT.test(f.filename));
-  const diff = frontendFiles
-    .map(
-      (f: any) =>
-        `### ${f.filename}\n\`\`\`diff\n${f.patch || "(no patch)"}\n\`\`\``,
-    )
-    .join("\n\n");
+  // Filter to frontend files
+  let frontendFiles = files.filter((f: any) => FRONTEND_EXT.test(f.filename));
 
-  if (!diff) {
-    await octokit.request(
-      "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
-      {
-        owner,
-        repo: name,
-        issue_number: pr_number,
-        body: "**Mieru**: No frontend files to review in this PR.",
-      },
+  // Apply ignore_paths
+  if (config.ignore_paths?.length) {
+    frontendFiles = frontendFiles.filter(
+      (f: any) =>
+        !config.ignore_paths!.some((p) => {
+          const re = new RegExp(p.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*"));
+          return re.test(f.filename);
+        }),
+    );
+  }
+
+  // Smart skip — auto-review only: silent if nothing relevant to review
+  if (frontendFiles.length === 0) {
+    if (opts.auto) {
+      console.log(`[runReview] silent skip — no frontend files`);
+      return;
+    }
+    await postSimpleComment(
+      octokit,
+      owner,
+      name,
+      pr_number,
+      "👁️ **Mieru-bot**: No frontend files to review.",
     );
     return;
   }
 
+  // Smart skip — all files only have deletions (cleanup PR)
+  const allDeletions = frontendFiles.every((f: any) => isAllDeletions(f.patch || ""));
+  if (allDeletions) {
+    if (opts.auto) {
+      console.log(`[runReview] silent skip — all deletions`);
+      return;
+    }
+    await postSimpleComment(
+      octokit,
+      owner,
+      name,
+      pr_number,
+      "👁️ **Mieru-bot**: This PR only deletes code, nothing to review.",
+    );
+    return;
+  }
+
+  const annotated = frontendFiles
+    .map((f: any) => annotatePatchWithLineNumbers(f.filename, f.patch || ""))
+    .join("\n\n");
+
+  console.log(`[runReview] sending ${frontendFiles.length} file(s) to GPT-4o`);
   const { output: review } = await generateText({
     model: openai("gpt-4o"),
     output: Output.object({ schema: ReviewSchema }),
-    system: SYSTEM,
-    prompt: `Review this PR for accessibility issues:\n\n${diff}`,
+    system: REVIEW_SYSTEM,
+    prompt: `Review this PR for accessibility issues. Each line is annotated with [N] where N is the line number in the new file. Use those exact line numbers in the 'line' and 'end_line' fields.\n\n${annotated}`,
   });
 
+  console.log(`[runReview] got ${review.issues.length} issues, score ${review.score}`);
+
+  // Filter by config
+  let filteredIssues = applyConfigFilter(review.issues, config);
+
+  // Validate issues — keep only those with valid line numbers in the diff
+  const addedLinesPerFile = new Map<string, Set<number>>();
+  for (const f of frontendFiles) {
+    addedLinesPerFile.set(f.filename, getAddedLineSet(f.patch || ""));
+  }
+  filteredIssues = filteredIssues.filter((i) => {
+    const set = addedLinesPerFile.get(i.file);
+    if (!set) return false;
+    if (!set.has(i.line)) {
+      console.warn(`[runReview] dropping issue at ${i.file}:${i.line} — not in added lines`);
+      return false;
+    }
+    return true;
+  });
+
+  console.log(`[runReview] after filtering: ${filteredIssues.length} issues`);
+
+  await postReviewWithInlineComments(octokit, owner, name, pr_number, headSha, {
+    ...review,
+    issues: filteredIssues,
+  });
+
+  // Optional auto-fix PR (opt-in via .mieru.yaml)
+  if (config.auto_fix_pr === true && filteredIssues.length > 0 && !opts.summaryOnly) {
+    try {
+      await createFixPR(
+        octokit,
+        owner,
+        name,
+        pr_number,
+        { ...review, issues: filteredIssues },
+        headBranch,
+        baseBranch,
+      );
+    } catch (e) {
+      console.error("createFixPR failed:", e);
+    }
+  }
+}
+
+// =============================================================================
+// Post the GitHub review with inline suggestion comments
+// =============================================================================
+
+async function postReviewWithInlineComments(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pull_number: number,
+  commit_id: string,
+  review: Review,
+) {
   const sevEmoji: Record<string, string> = {
     blocker: "🚫",
     warning: "⚠️",
@@ -235,76 +594,374 @@ async function runReview(
     suggestion: "SUGGESTION",
   };
 
-  const issuesMarkdown =
+  const counts = review.issues.reduce(
+    (acc, i) => {
+      acc[i.severity] = (acc[i.severity] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  // Files breakdown table
+  const byFile = review.issues.reduce(
+    (acc, i) => {
+      if (!acc[i.file]) acc[i.file] = { blocker: 0, warning: 0, suggestion: 0 };
+      acc[i.file][i.severity]++;
+      return acc;
+    },
+    {} as Record<string, Record<string, number>>,
+  );
+
+  const fileTable = Object.entries(byFile)
+    .map(
+      ([f, sev]) =>
+        `| \`${f}\` | ${sev.blocker || ""} | ${sev.warning || ""} | ${sev.suggestion || ""} |`,
+    )
+    .join("\n");
+
+  const countsLine = [
+    counts.blocker ? `🚫 ${counts.blocker} blocker${counts.blocker > 1 ? "s" : ""}` : null,
+    counts.warning ? `⚠️ ${counts.warning} warning${counts.warning > 1 ? "s" : ""}` : null,
+    counts.suggestion
+      ? `💡 ${counts.suggestion} suggestion${counts.suggestion > 1 ? "s" : ""}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const walkthroughBody =
     review.issues.length === 0
-      ? "✅ No accessibility issues detected."
-      : review.issues
-          .map(
-            (i: any) => `
-### ${sevEmoji[i.severity]} ${sevLabel[i.severity]} — ${i.wcag}
-**File:** \`${i.file}\`
-
-${i.problem}
-
-**Fix:** ${i.fix}
-
-\`\`\`tsx
-${i.code_suggestion}
-\`\`\`
-`,
-          )
-          .join("\n---\n");
-
-  console.log(`[runReview] PR #${pr_number} — score: ${review.score}, issues: ${review.issues.length}`);
-
-  // Create fix PR if there are issues
-  let fixPrUrl: string | null = null;
-  if (review.issues.length > 0) {
-    console.log(`[createFixPR] Starting — headBranch: ${headBranch}, baseBranch: ${baseBranch}`);
-    try {
-      fixPrUrl = await createFixPR(
-        octokit,
-        owner,
-        name,
-        pr_number,
-        review,
-        headBranch,
-        baseBranch,
-      );
-      console.log(`[createFixPR] Done — fixPrUrl: ${fixPrUrl}`);
-    } catch (e) {
-      console.error("[createFixPR] FAILED:", e);
-    }
-  }
-
-  const fixSection = fixPrUrl
-    ? `\n\n---\n\n## 🔧 Auto-fix ready
-
-I created **${fixPrUrl}** with all fixes applied.
-
-**Merge that PR into \`${headBranch}\`** to apply the fixes to this PR. Then this PR is ready for \`${baseBranch}\`.`
-    : "";
-
-  const body = `## Mieru-bot review · 見える
+      ? `## 👁️ Mieru-bot review · 見える
 *Making the invisible visible.*
 
-**Score: ${review.score}/100**
+**Score: ${review.score}/100** — ✅ no accessibility issues detected
 
 ${review.summary}
 
-${issuesMarkdown}
-${fixSection}
+---
+*Powered by GPT-4o · v0 Build Week 2026*`
+      : `## 👁️ Mieru-bot review · 見える
+*Making the invisible visible.*
+
+**Score: ${review.score}/100** — ${review.issues.length} accessibility issue${review.issues.length === 1 ? "" : "s"} found
+${countsLine}
+
+### Walkthrough
+
+${review.summary}
+
+${review.walkthrough.map((w) => `- ${w}`).join("\n")}
+
+### Files reviewed
+
+| File | 🚫 | ⚠️ | 💡 |
+|------|----|----|----|
+${fileTable}
 
 ---
-*Mieru 見える · Powered by GPT-4o · v0 Build Week 2026*
 
-💬 Mention me again with \`@mieru-bot review\` after pushing fixes.`;
+I left **${review.issues.length} inline comment${review.issues.length === 1 ? "" : "s"}** below — each with a one-click \`Apply suggestion\` button.
+
+💬 **Chat with me:**
+- Reply \`@mieru-bot why\` on any inline comment for a deeper explanation
+- Reply \`@mieru-bot ignore\` to mark a finding as a false positive
+- Comment \`@mieru-bot explain WCAG 1.1.1\` to learn about a specific rule
+- Comment \`@mieru-bot help\` for the full command list
+
+---
+*Powered by GPT-4o · v0 Build Week 2026*`;
+
+  // Build inline comments with suggestion blocks
+  const comments = review.issues.map((i) => {
+    const isMultiLine = i.end_line && i.end_line > i.line;
+    const body = `${sevEmoji[i.severity]} **${sevLabel[i.severity]}** · ${i.wcag}
+
+${i.problem}
+
+\`\`\`suggestion
+${i.suggested_code}
+\`\`\`
+
+<details><summary>Why this matters</summary>
+
+${i.explanation}
+</details>
+
+*Reply \`@mieru-bot why\` for more detail or \`@mieru-bot ignore\` to skip.*`;
+
+    const c: any = {
+      path: i.file,
+      line: isMultiLine ? i.end_line : i.line,
+      side: "RIGHT",
+      body,
+    };
+    if (isMultiLine) {
+      c.start_line = i.line;
+      c.start_side = "RIGHT";
+    }
+    return c;
+  });
+
+  const reviewEvent = counts.blocker ? "REQUEST_CHANGES" : "COMMENT";
+
+  // If no inline comments, post a regular issue comment instead (no review needed)
+  if (comments.length === 0) {
+    await octokit.request(
+      "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+      {
+        owner,
+        repo,
+        issue_number: pull_number,
+        body: walkthroughBody,
+      },
+    );
+    return;
+  }
+
+  try {
+    await octokit.request(
+      "POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+      {
+        owner,
+        repo,
+        pull_number,
+        commit_id,
+        event: reviewEvent,
+        body: walkthroughBody,
+        comments,
+      },
+    );
+  } catch (e: any) {
+    console.error("[postReview] failed:", e?.message);
+    // Fallback: post just the walkthrough without inline comments
+    await octokit.request(
+      "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+      {
+        owner,
+        repo,
+        issue_number: pull_number,
+        body:
+          walkthroughBody +
+          `\n\n⚠️ Could not post inline comments: \`${e?.message ?? "unknown error"}\``,
+      },
+    );
+  }
+}
+
+// =============================================================================
+// Chat: explain a WCAG rule
+// =============================================================================
+
+async function explainRule(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pr_number: number,
+  rule: string,
+) {
+  const { output } = await generateText({
+    model: openai("gpt-4o"),
+    output: Output.object({ schema: ExplainRuleSchema }),
+    system: EXPLAIN_RULE_SYSTEM,
+    prompt: `Explain the following WCAG rule to a developer: "${rule}". Include code examples and who is affected.`,
+  });
+
+  const body = `## 📚 ${output.rule}
+
+**What it means:** ${output.what_it_means}
+
+**Who it affects:** ${output.who_it_affects}
+
+**❌ Bad example:**
+\`\`\`tsx
+${output.bad_example}
+\`\`\`
+
+**✅ Good example:**
+\`\`\`tsx
+${output.good_example}
+\`\`\`
+
+---
+*Mieru-bot 見える · Powered by GPT-4o*`;
 
   await octokit.request(
     "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
-    { owner, repo: name, issue_number: pr_number, body },
+    { owner, repo, issue_number: pr_number, body },
   );
 }
+
+// =============================================================================
+// Inline thread chat: reply with "why"
+// =============================================================================
+
+async function replyWhyInThread(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pr_number: number,
+  comment: any,
+) {
+  // Fetch the parent comment (the original mieru-bot inline comment)
+  let parentBody = "";
+  if (comment.in_reply_to_id) {
+    try {
+      const { data: parent } = await octokit.request(
+        "GET /repos/{owner}/{repo}/pulls/comments/{comment_id}",
+        { owner, repo, comment_id: comment.in_reply_to_id },
+      );
+      parentBody = parent.body || "";
+    } catch {}
+  }
+
+  // Fetch surrounding code for context
+  let codeContext = "";
+  try {
+    const { data: file } = await octokit.request(
+      "GET /repos/{owner}/{repo}/contents/{path}",
+      { owner, repo, path: comment.path, ref: comment.commit_id || "HEAD" },
+    );
+    const content = Buffer.from((file as any).content, "base64").toString("utf-8");
+    const allLines = content.split("\n");
+    const start = Math.max(0, (comment.line || 1) - 5);
+    const end = Math.min(allLines.length, (comment.line || 1) + 5);
+    codeContext = allLines
+      .slice(start, end)
+      .map((l, idx) => `${start + idx + 1}: ${l}`)
+      .join("\n");
+  } catch {}
+
+  const { text } = await generateText({
+    model: openai("gpt-4o"),
+    system: `You are Mieru-bot, an accessibility expert. A developer is asking for a deeper explanation of an accessibility issue you flagged. Reply in 3-4 sentences. Be specific about the user impact (screen reader users, keyboard users, low vision users, cognitive disabilities). Use markdown. Sign off with: \`— Mieru 見える\`.`,
+    prompt: `Original finding I posted:\n${parentBody}\n\nSurrounding code (line ${comment.line} is the issue):\n\`\`\`\n${codeContext}\n\`\`\`\n\nThe developer asked: ${comment.body}\n\nRespond with a deeper explanation.`,
+  });
+
+  await replyInThread(octokit, owner, repo, pr_number, comment.id, text);
+}
+
+// =============================================================================
+// Inline thread chat: reply with ignore guidance
+// =============================================================================
+
+async function replyIgnoreInThread(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pr_number: number,
+  comment: any,
+) {
+  const body = `Got it — to permanently ignore this finding, you have a few options:
+
+1. **One-line ignore:** add \`{/* mieru-ignore */}\` directly above the line in code.
+2. **Repo-wide rule ignore:** add the WCAG number to your \`.mieru.yaml\`:
+   \`\`\`yaml
+   ignore_rules:
+     - "WCAG 1.4.3"  # color contrast
+   \`\`\`
+3. **Path ignore:** if this whole file should be skipped:
+   \`\`\`yaml
+   ignore_paths:
+     - "${comment.path}"
+   \`\`\`
+
+I'll respect any of these on the next review.
+
+— Mieru 見える`;
+
+  await replyInThread(octokit, owner, repo, pr_number, comment.id, body);
+}
+
+async function replyInThread(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pull_number: number,
+  in_reply_to: number,
+  body: string,
+) {
+  await octokit.request(
+    "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+    {
+      owner,
+      repo,
+      pull_number,
+      body,
+      in_reply_to,
+    },
+  );
+}
+
+// =============================================================================
+// Help, simple comment
+// =============================================================================
+
+async function postHelp(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pr_number: number,
+) {
+  const body = `## 👁️ Mieru-bot · 見える
+
+I review every PR for WCAG 2.1 accessibility issues and leave inline suggestions you can apply with one click.
+
+### How to use me
+
+| Where | Command | What it does |
+|---|---|---|
+| PR comment | _(nothing — automatic)_ | I review every PR I'm installed on, no command needed |
+| PR comment | \`@mieru-bot review\` | Re-run the review (e.g. after pushing fixes) |
+| PR comment | \`@mieru-bot summary\` | Walkthrough only, no inline comments |
+| PR comment | \`@mieru-bot explain <wcag-rule>\` | Learn about a specific WCAG rule with examples |
+| PR comment | \`@mieru-bot help\` | Show this message |
+| Inline thread | \`@mieru-bot why\` | Deeper explanation of a flagged issue |
+| Inline thread | \`@mieru-bot ignore\` | Show how to mark this as a false positive |
+
+### Or assign me as a reviewer
+
+In the **Reviewers** sidebar, type \`mieru-bot\` and assign me. I'll review on demand.
+
+### Customize per repo (optional)
+
+Drop a \`.mieru.yaml\` at the root of your repo:
+
+\`\`\`yaml
+auto_review: true                # default true — set false to disable auto-review
+severity_threshold: warning      # only show blockers and warnings, hide suggestions
+ignore_paths:
+  - "**/*.test.tsx"
+  - "components/legacy/**"
+ignore_rules:
+  - "WCAG 1.4.3"                 # skip color contrast — handled by design system
+auto_fix_pr: false               # set true to also open a PR with all fixes applied
+\`\`\`
+
+---
+*Mieru 見える · Powered by GPT-4o*`;
+
+  await octokit.request(
+    "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+    { owner, repo, issue_number: pr_number, body },
+  );
+}
+
+async function postSimpleComment(
+  octokit: any,
+  owner: string,
+  repo: string,
+  pr_number: number,
+  body: string,
+) {
+  await octokit.request(
+    "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
+    { owner, repo, issue_number: pr_number, body },
+  );
+}
+
+// =============================================================================
+// Auto-fix PR (opt-in via .mieru.yaml — kept for fallback)
+// =============================================================================
 
 async function createFixPR(
   octokit: any,
@@ -316,17 +973,13 @@ async function createFixPR(
   baseBranch: string,
 ): Promise<string> {
   const fixBranch = `mieru/fix-pr-${pr_number}`;
-  console.log(`[createFixPR] fix branch: ${fixBranch}`);
 
-  // Get HEAD SHA of the PR's source branch
   const { data: headRef } = await octokit.request(
     "GET /repos/{owner}/{repo}/git/ref/{ref}",
     { owner, repo, ref: `heads/${headBranch}` },
   );
   const headSha = headRef.object.sha;
-  console.log(`[createFixPR] headSha: ${headSha}`);
 
-  // Create fix branch (delete first if it already exists)
   try {
     await octokit.request("POST /repos/{owner}/{repo}/git/refs", {
       owner,
@@ -334,9 +987,7 @@ async function createFixPR(
       ref: `refs/heads/${fixBranch}`,
       sha: headSha,
     });
-    console.log(`[createFixPR] branch created`);
   } catch {
-    console.log(`[createFixPR] branch exists, recreating`);
     await octokit.request("DELETE /repos/{owner}/{repo}/git/refs/{ref}", {
       owner,
       repo,
@@ -350,61 +1001,29 @@ async function createFixPR(
     });
   }
 
-  // Apply fixes per file
   const filesWithIssues = [...new Set(review.issues.map((i) => i.file))];
-  console.log(`[createFixPR] files to fix: ${filesWithIssues.join(", ")}`);
 
   for (const filename of filesWithIssues) {
     const fileIssues = review.issues.filter((i) => i.file === filename);
-    console.log(`[createFixPR] fixing ${filename} (${fileIssues.length} issues)`);
-
     try {
       const { data: fileData } = await octokit.request(
         "GET /repos/{owner}/{repo}/contents/{path}",
         { owner, repo, path: filename, ref: headBranch },
       );
-
-      const currentContent = Buffer.from(
+      let workingContent = Buffer.from(
         (fileData as any).content,
         "base64",
       ).toString("utf-8");
 
-      console.log(`[createFixPR] got file content for ${filename}, applying ${fileIssues.length} fixes sequentially`);
-
-      // Apply fixes ONE BY ONE — each fix on the result of the previous
-      let workingContent = currentContent;
+      // Apply each fix sequentially
       for (let idx = 0; idx < fileIssues.length; idx++) {
         const issue = fileIssues[idx];
-        console.log(`[createFixPR] [${filename}] fix ${idx + 1}/${fileIssues.length}: ${issue.wcag}`);
-
-        const { text: nextContent } = await generateText({
+        const { text } = await generateText({
           model: openai("gpt-4o"),
-          system: `You are a precise code editor. You apply ONE accessibility fix at a time to a file.
-
-CRITICAL RULES:
-1. Apply ONLY the fix described — do not change anything else.
-2. Return the COMPLETE file content with the fix applied.
-3. Preserve every other line, prop, style, and import exactly as-is.
-4. No markdown, no code fences, no explanations. Output raw file content only.
-5. Maintain the original code style (indentation, quotes, semicolons).
-6. If the fix is already applied in the current file, return the file unchanged.`,
-          prompt: `File path: ${filename}
-
-CURRENT FILE CONTENT:
-${workingContent}
-
-THE ONE FIX TO APPLY:
-- WCAG rule: ${issue.wcag}
-- Problem: ${issue.problem}
-- What to change: ${issue.fix}
-- Reference code (apply this pattern, but adapted to the actual code):
-${issue.code_suggestion}
-
-Return the COMPLETE updated file content with this single fix applied. Nothing else changed.`,
+          system: `You are a precise code editor. Apply ONE accessibility fix to a file. Return ONLY the complete file content with the fix applied. No markdown, no fences, no explanations. Preserve all other code exactly.`,
+          prompt: `File: ${filename}\n\nCURRENT:\n${workingContent}\n\nFIX TO APPLY:\n- WCAG: ${issue.wcag}\n- Problem: ${issue.problem}\n- Replacement code for line ${issue.line}${issue.end_line ? `-${issue.end_line}` : ""}:\n${issue.suggested_code}\n\nReturn the complete updated file.`,
         });
-
-        workingContent = nextContent.trim();
-        // Strip code fences if model added them
+        workingContent = text.trim();
         if (workingContent.startsWith("```")) {
           workingContent = workingContent
             .replace(/^```[a-z]*\n/, "")
@@ -412,25 +1031,22 @@ Return the COMPLETE updated file content with this single fix applied. Nothing e
         }
       }
 
-      console.log(`[createFixPR] committing ${filename} after ${fileIssues.length} fixes`);
       await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
         owner,
         repo,
         path: filename,
-        message: `fix(a11y): apply ${fileIssues.length} WCAG fixes in ${filename}`,
+        message: `fix(a11y): apply ${fileIssues.length} WCAG fix(es) in ${filename}`,
         content: Buffer.from(workingContent).toString("base64"),
         branch: fixBranch,
         sha: (fileData as any).sha,
       });
-      console.log(`[createFixPR] committed ${filename} ✓`);
     } catch (e) {
-      console.error(`[createFixPR] ERROR fixing ${filename}:`, e);
+      console.error(`[createFixPR] failed on ${filename}:`, e);
     }
   }
 
-  // Open fix PR
   const issueList = review.issues
-    .map((i) => `- **${i.severity.toUpperCase()}** \`${i.file}\` — ${i.wcag}: ${i.fix}`)
+    .map((i) => `- **${i.severity.toUpperCase()}** \`${i.file}:${i.line}\` — ${i.wcag}`)
     .join("\n");
 
   const { data: pr } = await octokit.request(
@@ -441,22 +1057,16 @@ Return the COMPLETE updated file content with this single fix applied. Nothing e
       title: `fix(a11y): apply accessibility fixes to ${headBranch}`,
       body: `## Automated accessibility fixes · Mieru-bot 見える
 
-This PR contains the WCAG 2.1 fixes for **#${pr_number}**.
+Stacked fixes for **#${pr_number}**.
 
-### How to use this
+**Merge this PR into \`${headBranch}\`** to apply the fixes to your original PR. Then merge **#${pr_number}** into \`${baseBranch}\` as usual.
 
-1. Review the changes below (you can comment, request changes, or just merge)
-2. **Merge this PR into \`${headBranch}\`** — the fixes flow into your original PR
-3. Then merge **#${pr_number}** into \`${baseBranch}\` as you normally would
-
-That way only **one** clean PR reaches \`${baseBranch}\` — yours, with accessibility already fixed.
-
-### Fixes applied
+### Fixes
 
 ${issueList}
 
 ---
-*Mieru 見える · Powered by GPT-4o · v0 Build Week 2026*`,
+*Mieru 見える · Powered by GPT-4o*`,
       head: fixBranch,
       base: headBranch,
     },
@@ -465,6 +1075,10 @@ ${issueList}
   return pr.html_url;
 }
 
+// =============================================================================
+// GET — health check
+// =============================================================================
+
 export async function GET() {
   return Response.json({
     status: "Mieru-bot is watching",
@@ -472,5 +1086,13 @@ export async function GET() {
     kanji: "見える",
     meaning: "to be visible / to be seen",
     install: "https://github.com/apps/mieru-bot",
+    features: [
+      "Auto-review on every PR",
+      "Inline suggestions with one-click apply",
+      "Walkthrough summary at PR top",
+      "Chat with @mieru-bot why / explain / ignore",
+      "Assignable as a PR reviewer",
+      "Optional .mieru.yaml config",
+    ],
   });
 }
