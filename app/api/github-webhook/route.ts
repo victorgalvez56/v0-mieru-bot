@@ -42,7 +42,11 @@ Para cada issue:
 
 Tono: directo, técnico, accionable. Sin adornos. Sin disculpas.
 Score 0-100 según qué tan accesible quedó el código del diff.
-Si no hay issues, devuelve issues: [] y score: 100.`;
+Si no hay issues, devuelve issues: [] y score: 100.
+
+IMPORTANTE — formato de texto:
+- Siempre usa backticks para mencionar tags HTML, props o código inline. Ejemplo: \`<h1>\`, \`alt\`, \`tabIndex\`.
+- Nunca uses tags HTML crudos (<h1>, <div>, etc.) dentro de los campos summary, problem o fix — solo dentro de code_suggestion.`;
 
 const ReviewSchema = z.object({
   summary: z.string().describe("One paragraph summary of the review"),
