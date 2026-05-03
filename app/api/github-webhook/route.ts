@@ -369,47 +369,56 @@ async function createFixPR(
         "base64",
       ).toString("utf-8");
 
-      console.log(`[createFixPR] got file content for ${filename}, calling GPT-4o with ${fileIssues.length} fixes`);
-      const numberedFixes = fileIssues
-        .map(
-          (i, idx) =>
-            `### Fix ${idx + 1} of ${fileIssues.length} — ${i.wcag}\nProblem: ${i.problem}\nWhat to change: ${i.fix}\nSuggestion code:\n${i.code_suggestion}`,
-        )
-        .join("\n\n");
+      console.log(`[createFixPR] got file content for ${filename}, applying ${fileIssues.length} fixes sequentially`);
 
-      const { text: fixedContent } = await generateText({
-        model: openai("gpt-4o"),
-        system: `You are an expert code editor specialized in accessibility. Your job is to apply EVERY SINGLE accessibility fix listed to the provided file.
+      // Apply fixes ONE BY ONE — each fix on the result of the previous
+      let workingContent = currentContent;
+      for (let idx = 0; idx < fileIssues.length; idx++) {
+        const issue = fileIssues[idx];
+        console.log(`[createFixPR] [${filename}] fix ${idx + 1}/${fileIssues.length}: ${issue.wcag}`);
+
+        const { text: nextContent } = await generateText({
+          model: openai("gpt-4o"),
+          system: `You are a precise code editor. You apply ONE accessibility fix at a time to a file.
 
 CRITICAL RULES:
-1. Apply ALL fixes — every single one numbered. Do NOT skip any.
-2. Return the COMPLETE file content with all fixes applied — not a snippet.
-3. Preserve ALL existing functionality, props, styles, and structure that doesn't need fixing.
-4. No markdown formatting, no code fences (no \`\`\`), no explanations, no comments about what you changed.
-5. Output ONLY the raw file content, ready to be saved to disk as-is.
-6. If a fix conflicts with another, apply the most accessible solution.
-7. Maintain the original code style (indentation, quotes, semicolons).
-
-Verify before responding: did you apply all ${fileIssues.length} fixes? If not, apply the missing ones.`,
-        prompt: `File: ${filename}
+1. Apply ONLY the fix described — do not change anything else.
+2. Return the COMPLETE file content with the fix applied.
+3. Preserve every other line, prop, style, and import exactly as-is.
+4. No markdown, no code fences, no explanations. Output raw file content only.
+5. Maintain the original code style (indentation, quotes, semicolons).
+6. If the fix is already applied in the current file, return the file unchanged.`,
+          prompt: `File path: ${filename}
 
 CURRENT FILE CONTENT:
-${currentContent}
+${workingContent}
 
-ACCESSIBILITY FIXES TO APPLY (apply ALL ${fileIssues.length}):
+THE ONE FIX TO APPLY:
+- WCAG rule: ${issue.wcag}
+- Problem: ${issue.problem}
+- What to change: ${issue.fix}
+- Reference code (apply this pattern, but adapted to the actual code):
+${issue.code_suggestion}
 
-${numberedFixes}
+Return the COMPLETE updated file content with this single fix applied. Nothing else changed.`,
+        });
 
-Return the complete fixed file content. All ${fileIssues.length} fixes must be present in the output.`,
-      });
+        workingContent = nextContent.trim();
+        // Strip code fences if model added them
+        if (workingContent.startsWith("```")) {
+          workingContent = workingContent
+            .replace(/^```[a-z]*\n/, "")
+            .replace(/\n```\s*$/, "");
+        }
+      }
 
-      console.log(`[createFixPR] committing fix for ${filename}`);
+      console.log(`[createFixPR] committing ${filename} after ${fileIssues.length} fixes`);
       await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
         owner,
         repo,
         path: filename,
-        message: `fix(a11y): apply WCAG fixes in ${filename}`,
-        content: Buffer.from(fixedContent.trim()).toString("base64"),
+        message: `fix(a11y): apply ${fileIssues.length} WCAG fixes in ${filename}`,
+        content: Buffer.from(workingContent).toString("base64"),
         branch: fixBranch,
         sha: (fileData as any).sha,
       });
