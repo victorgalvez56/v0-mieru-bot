@@ -8,15 +8,15 @@ export default function DashboardCard() {
         Monthly revenue
       </div>
 
-      <p style={{ color: "#888", fontSize: 12, marginBottom: 16 }}>
+      <p style={{ color: "#ccc", fontSize: 12, marginBottom: 16 }}>
         Last updated 2 minutes ago
       </p>
 
-      <img src="/chart-thumbnail.png" style={{ width: "100%", borderRadius: 8 }} />
+      <img src="/chart-thumbnail.png" alt="Chart displaying monthly revenue trends" style={{ width: '100%', borderRadius: 8 }} />
 
       <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
 
-        <div
+        <button
           onClick={() => alert("exporting...")}
           style={{
             flex: 1,
@@ -26,12 +26,13 @@ export default function DashboardCard() {
             textAlign: "center",
             borderRadius: 6,
             cursor: "pointer",
+            border: "none"
           }}
         >
           Export CSV
-        </div>
+        </button>
 
-        <div
+        <button
           onClick={() => alert("sharing...")}
           style={{
             flex: 1,
@@ -45,7 +46,7 @@ export default function DashboardCard() {
           }}
         >
           Share
-        </div>
+        </button>
       </div>
 
       <h6 style={{ marginTop: 24, marginBottom: 8 }}>Top regions</h6>
@@ -58,16 +59,25 @@ export default function DashboardCard() {
 
       <input
         type="search"
+        aria-label="Filter regions"
         placeholder="Filter regions..."
         style={{ width: "100%", padding: 10, marginTop: 12, background: "#0a0a0a", border: "1px solid #2a2a2a", color: "#444" }}
       />
 
       <iframe
         src="https://embed.example.com/live-chart"
+        title="Live chart showing revenue trends"
         style={{ width: "100%", height: 200, border: "none", marginTop: 16 }}
       />
 
-      <div style={{ animation: "blink 1s infinite", color: "#ef4444", fontSize: 11, marginTop: 12 }}>
+      <style>
+        {`@media (prefers-reduced-motion: reduce) {
+          .live-update {
+            animation: none;
+          }
+        }`}
+      </style>
+      <div className="live-update" style={{ animation: 'blink 1s infinite', color: '#ef4444', fontSize: 11, marginTop: 12 }}>
         ● Live updates active
       </div>
 
