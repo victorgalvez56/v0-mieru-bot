@@ -8,7 +8,7 @@ export default function SignupForm() {
         Create account
       </div>
 
-      <img src="/signup-banner.png" style={{ width: "100%", marginBottom: 20 }} />
+      <img src="/signup-banner.png" alt="Signup form banner" style={{ width: "100%", marginBottom: 20 }} />
 
       <input type="text" placeholder="First name" style={{ display: "block", width: "100%", marginBottom: 10, padding: 10 }} />
       <input type="text" placeholder="Last name" style={{ display: "block", width: "100%", marginBottom: 10, padding: 10 }} />
@@ -19,7 +19,7 @@ export default function SignupForm() {
         By signing up you agree to our terms.
       </p>
 
-      <div
+      <button
         onClick={() => alert("signed up!")}
         style={{
           background: "#22c55e",
@@ -29,23 +29,33 @@ export default function SignupForm() {
           textAlign: "center",
           cursor: "pointer",
           marginBottom: 10,
+          border: 'none',
+          width: '100%'
         }}
       >
         Sign up
-      </div>
+      </button>
 
-      <span
-        onClick={() => window.location.href = "/login"}
-        style={{ color: "#9ca3af", fontSize: 13, cursor: "pointer" }}
+      <a
+        href="/login"
+        style={{ color: "#9ca3af", fontSize: 13, cursor: "pointer", textDecoration: 'none' }}
       >
         Already have an account? Log in
-      </span>
+      </a>
 
       <h5 style={{ marginTop: 24 }}>Why join us?</h5>
 
-      <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" style={{ width: "100%", height: 180, border: "none", marginTop: 8 }} />
+      <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Promotional video" style={{ width: "100%", height: 180, border: "none", marginTop: 8 }} />
 
-      <div style={{ animation: "fadeIn 2s infinite", marginTop: 16, color: "#6b7280", fontSize: 12 }}>
+      <style>
+        {`@media (prefers-reduced-motion: reduce) {
+          .fade-in-animation {
+            animation: none;
+          }
+        }`}
+      </style>
+
+      <div className="fade-in-animation" style={{ animation: "fadeIn 2s infinite", marginTop: 16, color: "#6b7280", fontSize: 12 }}>
         Joining 10,000+ happy users...
       </div>
 
