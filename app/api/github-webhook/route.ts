@@ -227,9 +227,12 @@ ${i.code_suggestion}
           )
           .join("\n---\n");
 
+  console.log(`[runReview] PR #${pr_number} — score: ${review.score}, issues: ${review.issues.length}`);
+
   // Create fix PR if there are issues
   let fixPrUrl: string | null = null;
   if (review.issues.length > 0) {
+    console.log(`[createFixPR] Starting — headBranch: ${headBranch}, baseBranch: ${baseBranch}`);
     try {
       fixPrUrl = await createFixPR(
         octokit,
@@ -240,8 +243,9 @@ ${i.code_suggestion}
         headBranch,
         baseBranch,
       );
+      console.log(`[createFixPR] Done — fixPrUrl: ${fixPrUrl}`);
     } catch (e) {
-      console.warn("createFixPR failed:", e);
+      console.error("[createFixPR] FAILED:", e);
     }
   }
 
@@ -280,6 +284,7 @@ async function createFixPR(
   baseBranch: string,
 ): Promise<string> {
   const fixBranch = `mieru/fix-pr-${pr_number}`;
+  console.log(`[createFixPR] fix branch: ${fixBranch}`);
 
   // Get HEAD SHA of the PR's source branch
   const { data: headRef } = await octokit.request(
@@ -287,6 +292,7 @@ async function createFixPR(
     { owner, repo, ref: `heads/${headBranch}` },
   );
   const headSha = headRef.object.sha;
+  console.log(`[createFixPR] headSha: ${headSha}`);
 
   // Create fix branch (delete first if it already exists)
   try {
@@ -296,7 +302,9 @@ async function createFixPR(
       ref: `refs/heads/${fixBranch}`,
       sha: headSha,
     });
+    console.log(`[createFixPR] branch created`);
   } catch {
+    console.log(`[createFixPR] branch exists, recreating`);
     await octokit.request("DELETE /repos/{owner}/{repo}/git/refs/{ref}", {
       owner,
       repo,
@@ -312,9 +320,11 @@ async function createFixPR(
 
   // Apply fixes per file
   const filesWithIssues = [...new Set(review.issues.map((i) => i.file))];
+  console.log(`[createFixPR] files to fix: ${filesWithIssues.join(", ")}`);
 
   for (const filename of filesWithIssues) {
     const fileIssues = review.issues.filter((i) => i.file === filename);
+    console.log(`[createFixPR] fixing ${filename} (${fileIssues.length} issues)`);
 
     try {
       const { data: fileData } = await octokit.request(
@@ -327,6 +337,7 @@ async function createFixPR(
         "base64",
       ).toString("utf-8");
 
+      console.log(`[createFixPR] got file content for ${filename}, calling GPT-4o`);
       const { text: fixedContent } = await generateText({
         model: openai("gpt-4o"),
         system:
@@ -336,6 +347,7 @@ async function createFixPR(
           .join("\n\n")}\n\nReturn the complete fixed file only.`,
       });
 
+      console.log(`[createFixPR] committing fix for ${filename}`);
       await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
         owner,
         repo,
@@ -345,8 +357,9 @@ async function createFixPR(
         branch: fixBranch,
         sha: (fileData as any).sha,
       });
+      console.log(`[createFixPR] committed ${filename} ✓`);
     } catch (e) {
-      console.warn(`Could not fix ${filename}:`, e);
+      console.error(`[createFixPR] ERROR fixing ${filename}:`, e);
     }
   }
 
