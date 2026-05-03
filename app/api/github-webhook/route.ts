@@ -135,18 +135,7 @@ Just mention me anywhere in this PR.`,
       return Response.json({ ok: true, command: "unknown" });
     }
 
-    // Handler 2: PR opened/updated/reopened → auto review
-    if (
-      event === "pull_request" &&
-      ["opened", "synchronize", "reopened"].includes(payload.action)
-    ) {
-      const installationId = payload.installation.id;
-      const octokit = await getApp().getInstallationOctokit(installationId);
-      const [owner, name] = payload.repository.full_name.split("/");
-
-      await runReview(octokit, owner, name, payload.pull_request.number);
-      return Response.json({ ok: true, auto: true });
-    }
+    // Auto-review disabled — use @mieru review in a PR comment to trigger manually
 
     return Response.json({ skipped: event });
   } catch (err: any) {
