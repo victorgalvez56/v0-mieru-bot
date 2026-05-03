@@ -1,6 +1,8 @@
 import { Hero } from '@/components/hero'
 import { HowItWorks } from '@/components/how-it-works'
 import { Demo } from '@/components/demo'
+import { Commands } from '@/components/commands'
+import { Config } from '@/components/config'
 import { Footer } from '@/components/footer'
 
 export default function Home() {
@@ -9,6 +11,8 @@ export default function Home() {
       <Hero />
       <HowItWorks />
       <Demo />
+      <Commands />
+      <Config />
       <Footer />
     </main>
   )

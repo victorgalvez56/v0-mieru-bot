@@ -31,14 +31,14 @@ export function Hero() {
 
         {/* Subheading */}
         <p className="text-lg sm:text-xl text-neutral-300 mb-8 max-w-2xl mx-auto text-balance font-light">
-          Accessibility reviews that make the invisible, visible.
+          Inline accessibility reviews with one-click fixes — directly in your pull requests.
         </p>
 
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 w-full sm:w-auto">
             <Github className="w-5 h-5 mr-2" />
-            Add to Your Repo
+            Install on GitHub →
           </Button>
           <Button size="lg" variant="outline" className="border-neutral-700 text-white hover:bg-neutral-900 w-full sm:w-auto">
             View Documentation
@@ -56,8 +56,8 @@ export function Hero() {
             <div className="text-neutral-500">Violations caught</div>
           </div>
           <div>
-            <div className="text-2xl font-semibold text-white">99%</div>
-            <div className="text-neutral-500">Uptime SLA</div>
+            <div className="text-2xl font-semibold text-white">10s</div>
+            <div className="text-neutral-500">avg fix time</div>
           </div>
         </div>
       </div>

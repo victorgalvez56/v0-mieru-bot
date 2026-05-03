@@ -1,6 +1,7 @@
 'use client'
 
-import { AlertCircle, MessageCircle, CheckCircle, Eye } from 'lucide-react'
+import { AlertCircle, CheckCircle, Eye, ThumbsUp } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export function Demo() {
   return (
@@ -16,124 +17,169 @@ export function Demo() {
           </p>
         </div>
 
-        {/* GitHub-style PR comment */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
-          {/* Comment header */}
-          <div className="border-b border-neutral-800 px-4 sm:px-6 py-4 bg-neutral-950">
-            <div className="flex items-center gap-3">
-              {/* Bot avatar - Eye icon */}
-              <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
-                <Eye className="w-5 h-5 text-white" />
+        {/* Stacked demo comments */}
+        <div className="space-y-6">
+          {/* Comment A: Summary Walkthrough */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+            {/* Header */}
+            <div className="border-b border-neutral-800 px-4 sm:px-6 py-4 bg-neutral-950">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
+                  <Eye className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">
+                    mieru-bot <span className="text-neutral-500 font-normal">@mieru-bot</span>
+                  </div>
+                  <div className="text-xs text-neutral-500">
+                    Accessibility Review Summary
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-semibold text-white">
-                  mieru-bot <span className="text-neutral-500 font-normal">@mieru-bot</span>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 sm:p-6 space-y-6">
+              {/* Score header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-neutral-300 mb-2">12 accessibility issues found</p>
+                  <div className="inline-block">
+                    <div className="text-3xl font-bold text-red-500">42<span className="text-lg text-neutral-500">/100</span></div>
+                  </div>
                 </div>
-                <div className="text-xs text-neutral-500">
-                  Accessibility Review — <span className="text-red-400">3 issues found</span>
+                <div className="text-right">
+                  <p className="text-xs text-neutral-500 mb-2">Accessibility score</p>
+                  <div className="w-24 h-2 bg-neutral-800 rounded-full overflow-hidden">
+                    <div className="w-1/2 h-full bg-red-500 rounded-full"></div>
+                  </div>
                 </div>
+              </div>
+
+              {/* File table */}
+              <div className="border border-neutral-800 rounded overflow-hidden">
+                <div className="grid grid-cols-3 bg-neutral-950">
+                  <div className="px-4 py-3 text-xs font-mono text-neutral-500 border-b border-r border-neutral-800">File</div>
+                  <div className="px-4 py-3 text-xs font-mono text-neutral-500 border-b border-r border-neutral-800">Issues</div>
+                  <div className="px-4 py-3 text-xs font-mono text-neutral-500 border-b border-neutral-800">Severity</div>
+                </div>
+                <div className="grid grid-cols-3 border-b border-neutral-800">
+                  <div className="px-4 py-3 text-xs text-neutral-300">components/Card.tsx</div>
+                  <div className="px-4 py-3 text-xs text-neutral-300 border-r border-neutral-800">5</div>
+                  <div className="px-4 py-3 text-xs"><span className="bg-red-950 text-red-400 px-2 py-1 rounded">High</span></div>
+                </div>
+                <div className="grid grid-cols-3 border-b border-neutral-800">
+                  <div className="px-4 py-3 text-xs text-neutral-300">pages/dashboard.tsx</div>
+                  <div className="px-4 py-3 text-xs text-neutral-300 border-r border-neutral-800">4</div>
+                  <div className="px-4 py-3 text-xs"><span className="bg-yellow-950 text-yellow-400 px-2 py-1 rounded">Med</span></div>
+                </div>
+                <div className="grid grid-cols-3">
+                  <div className="px-4 py-3 text-xs text-neutral-300">utils/helpers.ts</div>
+                  <div className="px-4 py-3 text-xs text-neutral-300 border-r border-neutral-800">3</div>
+                  <div className="px-4 py-3 text-xs"><span className="bg-blue-950 text-blue-400 px-2 py-1 rounded">Low</span></div>
+                </div>
+              </div>
+
+              {/* Bullet points */}
+              <div className="space-y-2 text-sm text-neutral-300">
+                <p className="font-semibold">High-impact changes:</p>
+                <ul className="space-y-1 text-neutral-400 list-disc list-inside">
+                  <li>Missing alt text on 3 images will block screen reader users</li>
+                  <li>Color contrast issues affect users with low vision (WCAG AA fails)</li>
+                  <li>Form labels missing — keyboard users can&apos;t identify fields</li>
+                </ul>
               </div>
             </div>
           </div>
 
-          {/* Comment body */}
-          <div className="p-4 sm:p-6 space-y-6">
-            {/* Header message */}
-            <p className="text-neutral-300 text-sm">
-              I found 3 accessibility issues in this PR. Let me make them visible so you can fix them.
-            </p>
-
-            {/* Issue 1: BLOCKER */}
-            <div className="border-l-4 border-red-500 bg-neutral-950 rounded p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex-shrink-0">
-                  <AlertCircle className="w-5 h-5 text-red-500" />
+          {/* Comment B: Inline Review */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+            {/* Header */}
+            <div className="border-b border-neutral-800 px-4 sm:px-6 py-3 bg-neutral-950">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0">
+                  <Eye className="w-5 h-5 text-white" />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-red-500 bg-red-950 px-2 py-1 rounded text-xs">
-                      BLOCKER
-                    </span>
-                    <span className="text-sm font-semibold text-white">Missing alt text</span>
+                <div>
+                  <div className="text-sm font-semibold text-white">
+                    mieru-bot <span className="text-neutral-500 font-normal">@mieru-bot</span>
                   </div>
-                  <p className="text-sm text-neutral-400 mb-3">
-                    Line 42: Image is missing an alt attribute. All images must have descriptive alt text.
-                  </p>
-                  <div className="bg-neutral-900 rounded border border-neutral-800 overflow-hidden text-xs font-mono">
-                    <div className="bg-red-950 text-red-300 px-4 py-2">
-                      - &lt;img src="/dashboard.png" /&gt;
-                    </div>
-                    <div className="bg-green-950 text-green-300 px-4 py-2">
-                      + &lt;img src="/dashboard.png" alt="User dashboard showing sales metrics" /&gt;
-                    </div>
+                  <div className="text-xs text-neutral-500">
+                    Line 42 • BLOCKER
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Issue 2: WARNING */}
-            <div className="border-l-4 border-yellow-500 bg-neutral-950 rounded p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex-shrink-0">
-                  <AlertCircle className="w-5 h-5 text-yellow-500" />
+            {/* Body */}
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="inline-block bg-red-950 text-red-400 px-2 py-1 rounded text-xs font-semibold">BLOCKER</span>
+                  <span className="text-sm font-semibold text-white">Missing alt text on image</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-yellow-600 bg-yellow-950 px-2 py-1 rounded text-xs">
-                      WARNING
-                    </span>
-                    <span className="text-sm font-semibold text-white">Poor color contrast</span>
+                <p className="text-sm text-neutral-400">
+                  <span className="font-mono text-xs text-neutral-500">WCAG 1.1.1 - Level A:</span> Image elements must have descriptive alternative text. Screen reader users cannot access this image.
+                </p>
+              </div>
+
+              {/* Code suggestion */}
+              <div className="bg-neutral-950 rounded border border-neutral-800 overflow-hidden text-xs font-mono space-y-0">
+                <div className="bg-red-950/30 text-red-300 px-4 py-2 border-b border-neutral-800">
+                  - &lt;img src="/hero.png" /&gt;
+                </div>
+                <div className="bg-green-950/30 text-green-300 px-4 py-2">
+                  + &lt;img src="/hero.png" alt="Dashboard showing sales metrics and user growth" /&gt;
+                </div>
+              </div>
+
+              {/* Action button */}
+              <Button className="w-full bg-green-600 text-white hover:bg-green-700">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Commit suggestion
+              </Button>
+            </div>
+          </div>
+
+          {/* Comment C: Chat Reply */}
+          <div className="bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden">
+            {/* Header - User question */}
+            <div className="border-b border-neutral-800 px-4 sm:px-6 py-4 bg-neutral-950">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-neutral-700 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-neutral-300">
+                  VG
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-white">
+                    You <span className="text-neutral-500 font-normal">@developer</span>
                   </div>
-                  <p className="text-sm text-neutral-400 mb-3">
-                    Line 156: Text color contrast ratio is 3.5:1. WCAG AA requires 4.5:1 for body text.
-                  </p>
-                  <div className="bg-neutral-900 rounded border border-neutral-800 overflow-hidden text-xs font-mono">
-                    <div className="bg-red-950 text-red-300 px-4 py-2">
-                      - &lt;p className="text-gray-600"&gt;Account settings&lt;/p&gt;
-                    </div>
-                    <div className="bg-green-950 text-green-300 px-4 py-2">
-                      + &lt;p className="text-gray-400"&gt;Account settings&lt;/p&gt;
-                    </div>
+                  <div className="text-xs text-neutral-500">
+                    Replied to mieru-bot
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Issue 3: SUGGESTION */}
-            <div className="border-l-4 border-blue-500 bg-neutral-950 rounded p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex-shrink-0">
-                  <MessageCircle className="w-5 h-5 text-blue-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-blue-600 bg-blue-950 px-2 py-1 rounded text-xs">
-                      SUGGESTION
-                    </span>
-                    <span className="text-sm font-semibold text-white">Missing form label</span>
-                  </div>
-                  <p className="text-sm text-neutral-400 mb-3">
-                    Line 89: Input field should have an associated label for better accessibility.
-                  </p>
-                  <div className="bg-neutral-900 rounded border border-neutral-800 overflow-hidden text-xs font-mono">
-                    <div className="bg-red-950 text-red-300 px-4 py-2">
-                      - &lt;input type="email" placeholder="Email" /&gt;
-                    </div>
-                    <div className="bg-green-950 text-green-300 px-4 py-2">
-                      + &lt;label htmlFor="email"&gt;Email&lt;/label&gt;&lt;br /&gt;
-                    </div>
-                    <div className="bg-green-950 text-green-300 px-4 py-2">
-                      + &lt;input id="email" type="email" /&gt;
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {/* User message */}
+            <div className="px-4 sm:px-6 py-4 border-b border-neutral-800 bg-neutral-900/50">
+              <p className="text-sm text-neutral-300 font-mono">
+                @mieru-bot why is this an issue for screen readers?
+              </p>
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center gap-2 text-xs text-neutral-500 pt-4 border-t border-neutral-800">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span>Fix these issues to pass accessibility checks.</span>
+            {/* Bot reply */}
+            <div className="px-4 sm:px-6 py-4">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center flex-shrink-0 flex-none">
+                  <Eye className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-white mb-2">mieru-bot</div>
+                  <p className="text-sm text-neutral-300 leading-relaxed">
+                    Screen readers announce images to users who are blind or have low vision. Without alt text, they only hear "image" with no context about what it shows. This breaks the user&apos;s ability to understand your dashboard. Descriptive alt text ensures everyone gets the same information.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
