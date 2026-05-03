@@ -250,7 +250,11 @@ ${i.code_suggestion}
   }
 
   const fixSection = fixPrUrl
-    ? `\n\n🔧 **Auto-fix PR ready:** ${fixPrUrl}`
+    ? `\n\n---\n\n## 🔧 Auto-fix ready
+
+I created **${fixPrUrl}** with all fixes applied.
+
+**Merge that PR into \`${headBranch}\`** to apply the fixes to this PR. Then this PR is ready for \`${baseBranch}\`.`
     : "";
 
   const body = `## Mieru-bot review · 見える
@@ -373,10 +377,18 @@ async function createFixPR(
     {
       owner,
       repo,
-      title: `fix(a11y): accessibility fixes from PR #${pr_number}`,
+      title: `fix(a11y): apply accessibility fixes to ${headBranch}`,
       body: `## Automated accessibility fixes · Mieru-bot 見える
 
-This PR was created automatically after reviewing [#${pr_number}].
+This PR contains the WCAG 2.1 fixes for **#${pr_number}**.
+
+### How to use this
+
+1. Review the changes below (you can comment, request changes, or just merge)
+2. **Merge this PR into \`${headBranch}\`** — the fixes flow into your original PR
+3. Then merge **#${pr_number}** into \`${baseBranch}\` as you normally would
+
+That way only **one** clean PR reaches \`${baseBranch}\` — yours, with accessibility already fixed.
 
 ### Fixes applied
 
@@ -385,7 +397,7 @@ ${issueList}
 ---
 *Mieru 見える · Powered by GPT-4o · v0 Build Week 2026*`,
       head: fixBranch,
-      base: baseBranch,
+      base: headBranch,
     },
   );
 
