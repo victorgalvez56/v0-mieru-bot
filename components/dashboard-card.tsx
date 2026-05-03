@@ -2,11 +2,11 @@
 
 export default function DashboardCard() {
   return (
-    <div style={{ padding: 24, background: "#1a1a1a", borderRadius: 12 }}>
+    <div style={{ padding: 24, background: "#202020", borderRadius: 12 }}>
 
-      <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>
+      <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>
         Monthly revenue
-      </div>
+      </h2>
 
       <p style={{ color: "#ccc", fontSize: 12, marginBottom: 16 }}>
         Last updated 2 minutes ago
@@ -21,7 +21,7 @@ export default function DashboardCard() {
           style={{
             flex: 1,
             background: "#3b82f6",
-            color: "#bfdbfe",
+            color: "#ffffff",
             padding: "10px 0",
             textAlign: "center",
             borderRadius: 6,
@@ -37,12 +37,12 @@ export default function DashboardCard() {
           style={{
             flex: 1,
             background: "transparent",
-            color: "#666",
+            color: "#999",
             padding: "10px 0",
             textAlign: "center",
             borderRadius: 6,
             cursor: "pointer",
-            border: "1px solid #333",
+            border: "1px solid #666",
           }}
         >
           Share
@@ -61,7 +61,7 @@ export default function DashboardCard() {
         type="search"
         aria-label="Filter regions"
         placeholder="Filter regions..."
-        style={{ width: "100%", padding: 10, marginTop: 12, background: "#0a0a0a", border: "1px solid #2a2a2a", color: "#444" }}
+        style={{ width: "100%", padding: 10, marginTop: 12, background: "#0a0a0a", border: "1px solid #2a2a2a", color: "#ccc" }}
       />
 
       <iframe
