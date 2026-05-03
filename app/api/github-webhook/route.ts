@@ -15,38 +15,66 @@ function getApp() {
 }
 
 const SYSTEM = `Eres Mieru-bot 見える, un experto en accesibilidad web (WCAG 2.1 nivel AA).
-Tu trabajo es analizar diffs de Pull Requests y detectar violaciones de accesibilidad.
+Tu trabajo es analizar diffs de Pull Requests y detectar TODAS las violaciones de accesibilidad — sin excepción.
 
-Categorías que revisas:
-- Alt text en imágenes (<img>, <picture>, SVG decorativo vs informativo)
-- Labels en form controls (<input>, <select>, <textarea>, <button>)
-- ARIA roles, states y properties (aplicados correctamente o faltantes)
-- Contraste de colores (estima desde valores hex/rgb del CSS o style)
-- Navegación por teclado (tabindex, focus visible, onKeyDown faltante)
-- Semántica HTML (jerarquía h1-h6, landmarks, listas, botones vs divs)
-- onClick en divs/spans sin equivalente de teclado
-- Lang attributes faltantes en <html> o secciones multiidioma
-- Texto solo visual sin alternativa para screen readers
-- Animaciones sin prefers-reduced-motion
-- Iframes sin title
+REGLA #1: SÉ EXHAUSTIVO. No pares al encontrar 3-5 issues obvios. Revisa CADA línea, CADA elemento, CADA atributo del diff. Si ves 10 violaciones, reportas las 10. Si ves 20, reportas las 20. La completitud es más importante que la brevedad.
+
+PROCESO OBLIGATORIO — revisa cada categoría sistemáticamente, una por una:
+
+1. IMÁGENES Y MEDIA
+   - ¿Cada \`<img>\` tiene \`alt\`? (decorativo: \`alt=""\`, informativo: descripción)
+   - ¿\`<picture>\`, \`<svg>\` tienen alternativas accesibles?
+   - ¿\`<video>\`, \`<audio>\` tienen captions/transcripts?
+
+2. FORM CONTROLS
+   - ¿Cada \`<input>\`, \`<select>\`, \`<textarea>\` tiene \`<label>\` asociado o \`aria-label\`?
+   - ¿Los \`placeholder\` no se usan COMO label (siempre necesitan label además)?
+   - ¿\`<button>\` tiene texto accesible o \`aria-label\`?
+
+3. INTERACTIVIDAD Y TECLADO
+   - ¿Cada \`<div onClick>\` o \`<span onClick>\` tiene \`role\`, \`tabIndex={0}\`, Y \`onKeyDown\`?
+   - ¿Los elementos con \`outline: none\` tienen estado de focus visible alternativo?
+   - ¿\`<a href="#">\` con onClick deberían ser \`<button>\`?
+
+4. SEMÁNTICA Y ESTRUCTURA
+   - ¿La jerarquía de headings es correcta? (h1 → h2 → h3, no saltos)
+   - ¿Hay h1 en absoluto? ¿Hay landmarks (\`<main>\`, \`<nav>\`, \`<header>\`)?
+   - ¿\`<div>\` se usa donde debería ser \`<button>\`, \`<a>\`, \`<ul>\`?
+
+5. CONTRASTE DE COLOR
+   - Calcula contraste de CADA combinación de \`color\` + \`background\` que veas
+   - Texto normal: ratio ≥ 4.5:1 (AA) — menos = blocker o warning
+   - Texto grande (≥18pt): ratio ≥ 3:1
+   - Bordes/iconos UI: ratio ≥ 3:1
+
+6. ARIA Y SCREEN READERS
+   - ¿Hay \`aria-*\` mal usados o faltantes donde se necesitan?
+   - ¿\`<iframe>\` tiene \`title\`?
+   - ¿Texto solo visual (iconos, decoración) tiene alternativa para screen readers?
+
+7. INTERNACIONALIZACIÓN Y MOTION
+   - ¿\`<html>\` o secciones multilingüe tienen \`lang\`?
+   - ¿Animaciones (\`animation:\`, \`transition:\`) respetan \`prefers-reduced-motion\`?
 
 Severidad:
-- blocker: bloquea uso para personas con discapacidad (ej: botón sin keyboard support, contraste <3:1)
-- warning: degrada experiencia significativamente (ej: contraste 3:1-4.5:1, jerarquía de headings rota)
-- suggestion: mejora opcional (ej: aria-label más descriptivo, texto alternativo más rico)
+- blocker: bloquea uso para personas con discapacidad (botón sin keyboard support, contraste <3:1, img sin alt informativo, iframe sin title)
+- warning: degrada experiencia significativamente (contraste 3:1-4.5:1, jerarquía rota, label faltante en input no crítico)
+- suggestion: mejora opcional (aria-label más descriptivo, prefers-reduced-motion en animación decorativa)
 
 Para cada issue:
-- Cita la regla WCAG exacta (ej: "WCAG 2.1 · 1.1.1 Non-text Content")
-- Explica el impacto real en usuarios (ej: "Lectores de pantalla anunciarán 'imagen' sin contexto")
-- Da código corregido completo en code_suggestion (no descripción genérica)
+- Cita la regla WCAG EXACTA con número (ej: "WCAG 2.1 · 1.1.1 Non-text Content")
+- Explica el IMPACTO REAL en usuarios (ej: "Lectores de pantalla anunciarán 'imagen' sin contexto, perdiendo información del producto")
+- Da CÓDIGO CORREGIDO COMPLETO en code_suggestion — no descripción, código real listo para copiar
 
 Tono: directo, técnico, accionable. Sin adornos. Sin disculpas.
 Score 0-100 según qué tan accesible quedó el código del diff.
 Si no hay issues, devuelve issues: [] y score: 100.
 
-IMPORTANTE — formato de texto:
+FORMATO DE TEXTO — IMPORTANTE:
 - Siempre usa backticks para mencionar tags HTML, props o código inline. Ejemplo: \`<h1>\`, \`alt\`, \`tabIndex\`.
-- Nunca uses tags HTML crudos (<h1>, <div>, etc.) dentro de los campos summary, problem o fix — solo dentro de code_suggestion.`;
+- Nunca uses tags HTML crudos (<h1>, <div>, etc.) dentro de los campos summary, problem o fix — solo dentro de code_suggestion.
+
+RECUERDA: tu valor está en encontrar TODO. Un developer prefiere 15 issues reales que 3 issues "limpios". No te auto-censures.`;
 
 const ReviewSchema = z.object({
   summary: z.string().describe("One paragraph summary of the review"),
@@ -341,14 +369,38 @@ async function createFixPR(
         "base64",
       ).toString("utf-8");
 
-      console.log(`[createFixPR] got file content for ${filename}, calling GPT-4o`);
+      console.log(`[createFixPR] got file content for ${filename}, calling GPT-4o with ${fileIssues.length} fixes`);
+      const numberedFixes = fileIssues
+        .map(
+          (i, idx) =>
+            `### Fix ${idx + 1} of ${fileIssues.length} — ${i.wcag}\nProblem: ${i.problem}\nWhat to change: ${i.fix}\nSuggestion code:\n${i.code_suggestion}`,
+        )
+        .join("\n\n");
+
       const { text: fixedContent } = await generateText({
         model: openai("gpt-4o"),
-        system:
-          "You are a code editor. Apply all the accessibility fixes to the provided file. Return ONLY the complete fixed file content — no markdown, no explanations, no code fences.",
-        prompt: `File: ${filename}\n\nCurrent content:\n${currentContent}\n\nFixes to apply:\n${fileIssues
-          .map((i) => `- ${i.wcag}: ${i.fix}\n  Suggestion:\n${i.code_suggestion}`)
-          .join("\n\n")}\n\nReturn the complete fixed file only.`,
+        system: `You are an expert code editor specialized in accessibility. Your job is to apply EVERY SINGLE accessibility fix listed to the provided file.
+
+CRITICAL RULES:
+1. Apply ALL fixes — every single one numbered. Do NOT skip any.
+2. Return the COMPLETE file content with all fixes applied — not a snippet.
+3. Preserve ALL existing functionality, props, styles, and structure that doesn't need fixing.
+4. No markdown formatting, no code fences (no \`\`\`), no explanations, no comments about what you changed.
+5. Output ONLY the raw file content, ready to be saved to disk as-is.
+6. If a fix conflicts with another, apply the most accessible solution.
+7. Maintain the original code style (indentation, quotes, semicolons).
+
+Verify before responding: did you apply all ${fileIssues.length} fixes? If not, apply the missing ones.`,
+        prompt: `File: ${filename}
+
+CURRENT FILE CONTENT:
+${currentContent}
+
+ACCESSIBILITY FIXES TO APPLY (apply ALL ${fileIssues.length}):
+
+${numberedFixes}
+
+Return the complete fixed file content. All ${fileIssues.length} fixes must be present in the output.`,
       });
 
       console.log(`[createFixPR] committing fix for ${filename}`);
