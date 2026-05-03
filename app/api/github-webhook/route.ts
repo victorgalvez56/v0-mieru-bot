@@ -66,15 +66,15 @@ export async function POST(req: Request) {
     const event = req.headers.get("x-github-event");
     const payload = await req.json();
 
-    // Handler 1: comment with @mieru in a PR
+    // Handler 1: comment with @mieru-bot in a PR
     if (event === "issue_comment" && payload.action === "created") {
       if (!payload.issue.pull_request) {
         return Response.json({ skipped: "not a PR comment" });
       }
 
       const comment = payload.comment.body as string;
-      if (!comment.toLowerCase().includes("@mieru")) {
-        return Response.json({ skipped: "no @mieru mention" });
+      if (!comment.toLowerCase().includes("@mieru-bot")) {
+        return Response.json({ skipped: "no @mieru-bot mention" });
       }
 
       if (payload.comment.user.type === "Bot") {
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
       }
 
       const cmd =
-        comment.toLowerCase().match(/@mieru\s+(\w+)/)?.[1] || "review";
+        comment.toLowerCase().match(/@mieru-bot\s+(\w+)/)?.[1] || "review";
 
       if (cmd === "help") {
         await octokit.request(
@@ -109,8 +109,8 @@ export async function POST(req: Request) {
 
 Hi! I review your code for accessibility issues. Here's what I can do:
 
-- \`@mieru review\` — Full WCAG 2.1 review + auto-fix PR
-- \`@mieru help\` — Show this message
+- \`@mieru-bot review\` — Full WCAG 2.1 review + auto-fix PR
+- \`@mieru-bot help\` — Show this message
 
 Just mention me anywhere in this PR.`,
           },
@@ -129,13 +129,13 @@ Just mention me anywhere in this PR.`,
           owner,
           repo: name,
           issue_number: pr_number,
-          body: `Mieru-bot: I don't know the command \`${cmd}\`. Try \`@mieru review\` or \`@mieru help\`.`,
+          body: `Mieru-bot: I don't know the command \`${cmd}\`. Try \`@mieru-bot review\` or \`@mieru-bot help\`.`,
         },
       );
       return Response.json({ ok: true, command: "unknown" });
     }
 
-    // Auto-review disabled — use @mieru review in a PR comment to trigger manually
+    // Auto-review disabled — use @mieru-bot review in a PR comment to trigger manually
 
     return Response.json({ skipped: event });
   } catch (err: any) {
@@ -258,7 +258,7 @@ ${fixSection}
 ---
 *Mieru 見える · Powered by GPT-4o · v0 Build Week 2026*
 
-💬 Mention me again with \`@mieru review\` after pushing fixes.`;
+💬 Mention me again with \`@mieru-bot review\` after pushing fixes.`;
 
   await octokit.request(
     "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
