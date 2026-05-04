@@ -563,7 +563,7 @@ async function runReview(
       owner,
       name,
       pr_number,
-      "👁️ **Mieru-bot**: No frontend files to review.",
+      "**Mieru-bot**: No frontend files to review.",
     );
     return;
   }
@@ -580,7 +580,7 @@ async function runReview(
       owner,
       name,
       pr_number,
-      "👁️ **Mieru-bot**: This PR only deletes code, nothing to review.",
+      "**Mieru-bot**: This PR only deletes code, nothing to review.",
     );
     return;
   }
@@ -793,7 +793,7 @@ async function postReviewWithInlineComments(
 
   const walkthroughBody =
     review.issues.length === 0
-      ? `## 👁️ Mieru-bot review · 見える
+      ? `## Mieru-bot review · 見える
 *Making the invisible visible.*
 
 **Score: ${review.score}/100** — ✅ no accessibility issues detected
@@ -802,7 +802,7 @@ ${review.summary}
 
 ---
 *Mieru-bot 見える · [Install on another repo](https://github.com/apps/mieru-bot) · [Configure with .mieru.yaml](https://github.com/apps/mieru-bot)*`
-      : `## 👁️ Mieru-bot review · 見える
+      : `## Mieru-bot review · 見える
 *Making the invisible visible.*
 
 **Score: ${review.score}/100** — ${review.issues.length} accessibility issue${review.issues.length === 1 ? "" : "s"} found
@@ -1064,7 +1064,7 @@ async function postHelp(
   repo: string,
   pr_number: number,
 ) {
-  const body = `## 👁️ Mieru-bot · 見える
+  const body = `## Mieru-bot · 見える
 
 I review every PR for WCAG 2.1 accessibility issues and leave inline suggestions you can apply with one click.
 
