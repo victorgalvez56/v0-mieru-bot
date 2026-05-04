@@ -21,7 +21,7 @@ export function AnimatedHero() {
 
       {/* Animated kanji watermark */}
       <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-1000 ${mounted ? 'opacity-[0.08]' : 'opacity-0'}`}>
-        <div className="text-[40vw] font-bold text-white leading-none animate-pulse-glow">見える</div>
+        <div className="text-[40vw] font-bold text-white leading-none animate-pulse-glow" role="img" aria-label="Mieru Kanji, meaning visibility">見える</div>
       </div>
 
       {/* Animated glow orbs */}
@@ -50,8 +50,8 @@ export function AnimatedHero() {
 
         {/* CTA Buttons with animation */}
         <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.8s' }}>
-          <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition-all active:scale-95 w-full sm:w-auto shadow-lg hover:shadow-red-600/50">
-            <Github className="w-5 h-5 mr-2" />
+          <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition-all active:scale-95 w-full sm:w-auto shadow-lg hover:shadow-red-600/50" aria-label="Install on GitHub">
+            <Github className="w-5 h-5 mr-2" aria-hidden="true" />
             Install on GitHub →
           </Button>
           <Button size="lg" variant="outline" className="border-neutral-700 text-white hover:bg-neutral-900 hover:scale-105 transition-all active:scale-95 w-full sm:w-auto">
@@ -74,7 +74,7 @@ export function AnimatedHero() {
         </div>
 
         {/* Floating eye icon */}
-        <div className="absolute top-1/4 -left-20 opacity-10 pointer-events-none animate-float">
+        <div className="absolute top-1/4 -left-20 opacity-10 pointer-events-none animate-float" role="presentation" aria-hidden="true">
           <Eye className="w-40 h-40 text-red-500" />
         </div>
         <div className="absolute bottom-1/4 -right-20 opacity-10 pointer-events-none animate-float" style={{ animationDelay: '2s' }}>
