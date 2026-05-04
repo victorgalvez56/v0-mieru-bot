@@ -15,9 +15,9 @@ export function Navbar() {
       .then(data => setStars(data.stargazers_count))
       .catch(() => setStars(null))
 
-    // Check system preference
+    // Default to dark theme
     if (typeof window !== 'undefined') {
-      const isDarkMode = document.documentElement.classList.contains('dark')
+      const isDarkMode = document.documentElement.classList.contains('dark') || !document.documentElement.classList.contains('light')
       setIsDark(isDarkMode)
     }
   }, [])
