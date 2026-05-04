@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, Github, Moon, Sun } from 'lucide-react'
+import { Github, Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function Navbar() {
@@ -31,16 +31,8 @@ export function Navbar() {
   return (
     <header className="fixed top-0 w-full bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 backdrop-blur-sm z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center gap-3 font-bold text-lg">
-          <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center">
-            <Eye className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-neutral-900 dark:text-white">Mieru</span>
-        </div>
-
         {/* Center nav items */}
-        <nav className="hidden md:flex items-center gap-8 text-sm">
+        <nav className="flex-1 flex items-center justify-center md:gap-8 text-sm">
           <a href="#features" className="text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition">
             Features
           </a>
