@@ -20,17 +20,17 @@ export function HowItWorks() {
     {
       icon: MessageSquare,
       title: 'Open a PR',
-      description: 'Push your branch as you normally would. No setup, no extra commands.',
+      description: 'Push your branch as you normally would. The moment your PR opens, Mieru auto-reviews it. No setup, no commands, no dashboard.',
     },
     {
       icon: CheckCircle,
-      title: 'Mention @mieru-bot review',
-      description: 'The bot leaves inline comments on every accessibility issue, each with a one-click GitHub suggestion you can apply instantly.',
+      title: 'Get inline suggestions',
+      description: 'Mieru leaves comments on the exact lines that have problems — each with the WCAG rule cited, the user impact explained, and a one-click "Commit suggestion" button to apply the fix.',
     },
     {
       icon: MessageCircle,
       title: 'Chat with the bot',
-      description: 'Ask follow-up questions like "@mieru-bot why?" or "@mieru-bot explain WCAG 2.1.1". Apply or dismiss suggestions as you go.',
+      description: 'Reply "@mieru-bot why" on any inline comment for a deeper explanation. Comment "@mieru-bot explain WCAG 1.4.3" to learn about a rule. The bot understands plain English in PR comments.',
     },
   ]
 

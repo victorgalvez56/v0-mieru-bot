@@ -6,7 +6,7 @@ export function Footer() {
     <section className="border-t border-neutral-800 bg-neutral-950 py-12 sm:py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Animated background accent */}
       <div className="absolute inset-0 opacity-10 pointer-events-none">
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-red-600/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-red-600/20 rounded-full blur-3xl" aria-hidden="true" />
       </div>
 
       <div className="max-w-6xl mx-auto relative z-10">
@@ -20,18 +20,20 @@ export function Footer() {
             <p className="text-lg text-neutral-400 mb-6">
               Get started in minutes. No credit card required.
             </p>
-            <Button size="lg" className="bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition-all active:scale-95 w-full sm:w-auto shadow-lg hover:shadow-red-600/50">
-              <Github className="w-5 h-5 mr-2" />
-              Install from GitHub Marketplace
+            <Button size="lg" asChild className="bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition-all active:scale-95 w-full sm:w-auto shadow-lg hover:shadow-red-600/50">
+              <a href="https://github.com/apps/mieru-bot" target="_blank" rel="noopener noreferrer">
+                <Github className="w-5 h-5 mr-2" />
+                Install from GitHub
+              </a>
             </Button>
           </div>
 
           {/* Right side: Features */}
           <div className="space-y-4">
             {[
-              { icon: '✓', title: 'Free for open source', desc: 'Public repos included at no cost' },
-              { icon: '✓', title: 'Privacy first', desc: 'Your code stays in your GitHub workspace' },
-              { icon: '✓', title: 'WCAG 2.1 AA compliant', desc: 'Catches 90% of common a11y issues' }
+              { icon: '✓', title: 'Free for everyone', desc: 'no plans, no pricing — install and use' },
+              { icon: '✓', title: 'Privacy first', desc: 'your code stays in your GitHub workspace' },
+              { icon: '✓', title: 'WCAG 2.1 AA coverage', desc: 'across 7 categories of accessibility' }
             ].map((item, idx) => (
               <div key={idx} className="group cursor-default transition-all duration-300 hover:translate-x-2 hover:text-red-400">
                 <h3 className="font-semibold text-white mb-1 group-hover:text-red-400 transition-colors">
@@ -47,48 +49,21 @@ export function Footer() {
 
         {/* Divider */}
         <div className="border-t border-neutral-800 pt-8">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            {/* Links */}
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-4 text-red-400">Product</h4>
-              <ul className="space-y-2 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Features</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Pricing</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Roadmap</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-4 text-red-400">Resources</h4>
-              <ul className="space-y-2 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Documentation</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">WCAG Guide</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Blog</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-4 text-red-400">Legal</h4>
-              <ul className="space-y-2 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Privacy</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Terms</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-4 text-red-400">Connect</h4>
-              <ul className="space-y-2 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">GitHub</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Twitter</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Discord</a></li>
-              </ul>
-            </div>
+          {/* Links */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 mb-8 text-sm">
+            <a href="https://github.com/victorgalvez56/v0-mieru-bot" target="_blank" rel="noopener noreferrer" className="hover:text-red-400 transition duration-200">
+              GitHub
+            </a>
+            <a href="https://github.com/apps/mieru-bot" target="_blank" rel="noopener noreferrer" className="hover:text-red-400 transition duration-200">
+              Install
+            </a>
+            <span className="text-neutral-600">MIT License</span>
           </div>
 
           {/* Copyright */}
           <div className="border-t border-neutral-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-neutral-500">
-            <div>© 2024 Mieru-bot. All rights reserved.</div>
-            <div className="flex gap-6">
-              <a href="#" className="hover:text-red-400 transition duration-200">Status</a>
-              <a href="#" className="hover:text-red-400 transition duration-200">Feedback</a>
-            </div>
+            <div>© 2026 Mieru-bot · MIT License</div>
+            <div>Built for v0 Build Week 2026 · Bogotá + Lima · 見える</div>
           </div>
         </div>
       </div>

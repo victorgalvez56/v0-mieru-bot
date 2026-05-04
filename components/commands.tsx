@@ -1,6 +1,6 @@
 'use client'
 
-import { Sparkles, HelpCircle, BookOpen, EyeOff } from 'lucide-react'
+import { Sparkles, HelpCircle, BookOpen, EyeOff, FileText, MessageCircle } from 'lucide-react'
 
 export function Commands() {
   const commands = [
@@ -24,6 +24,16 @@ export function Commands() {
       command: '@mieru-bot ignore <line>',
       description: 'Add an ignore comment for false positives',
     },
+    {
+      icon: FileText,
+      command: '@mieru-bot summary',
+      description: 'Walkthrough only, no inline comments',
+    },
+    {
+      icon: MessageCircle,
+      command: '@mieru-bot help',
+      description: 'Show every command',
+    },
   ]
 
   return (
@@ -32,15 +42,15 @@ export function Commands() {
         {/* Section header */}
         <div className="text-center mb-12 sm:mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Available commands
+            Chat with Mieru
           </h2>
           <p className="text-lg text-neutral-400 max-w-2xl mx-auto">
-            Chat directly with Mieru-bot in your pull requests
+            Mention @mieru-bot anywhere — typos like @mieru-but and variants like @mierubot work too.
           </p>
         </div>
 
         {/* Commands grid */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {commands.map((cmd, idx) => {
             const Icon = cmd.icon
             return (
@@ -65,6 +75,11 @@ export function Commands() {
             )
           })}
         </div>
+
+        {/* Note */}
+        <p className="text-center text-sm italic text-neutral-500 max-w-2xl mx-auto">
+          Or assign &apos;mieru-bot&apos; in the PR Reviewers sidebar — same effect as @mieru-bot review.
+        </p>
       </div>
     </section>
   )

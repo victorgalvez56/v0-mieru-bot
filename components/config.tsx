@@ -1,26 +1,27 @@
 'use client'
 
 export function Config() {
-  const yamlContent = `# .mieru.yaml
-# Configuration file for Mieru-bot
+  const yamlContent = `# .mieru.yaml — drop at the root of your repo
+# Every field is optional. Defaults work great out of the box.
 
-severity:
-  blocker: true        # Fail PR on blocker issues
-  warning: true        # Fail PR on warnings
-  suggestion: false    # Allow suggestions
+# Auto-review every PR when it opens or gets new commits
+auto_review: true
 
+# After every review, also open a stacked fix PR with all
+# suggested changes pre-applied
+auto_fix_pr: false
+
+# Hide noise. Options: blocker, warning, suggestion (default)
+severity_threshold: warning
+
+# Glob patterns of files to skip
 ignore_paths:
-  - "node_modules/"
-  - ".next/"
-  - "build/"
-  - "dist/"
+  - "**/*.test.tsx"
+  - "components/legacy/**"
 
-wcag_level: "AA"       # AA or AAA
-auto_fix: false        # true = auto-fix PR, false = suggestions only
-
-# Add specific WCAG rules to ignore (optional)
-# ignore_rules:
-#   - "1.4.3"          # Color contrast`
+# Specific WCAG rules to skip (handled elsewhere, e.g. by design system)
+ignore_rules:
+  - "WCAG 1.4.3"`
 
   return (
     <section className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 bg-black">
@@ -28,10 +29,10 @@ auto_fix: false        # true = auto-fix PR, false = suggestions only
         {/* Section header */}
         <div className="mb-12">
           <h2 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-            Configure for your team
+            Customize for your repo
           </h2>
           <p className="text-lg text-neutral-400">
-            Drop a .mieru.yaml at the root of your repo to set severity thresholds, ignore paths, and choose between inline suggestions or auto-fix PRs.
+            Optional. Drop a .mieru.yaml at the root of your repo. Solo devs and OSS maintainers don&apos;t need to touch this.
           </p>
         </div>
 
