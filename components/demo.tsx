@@ -10,8 +10,12 @@ export function Demo() {
         </p>
         <div className="relative">
           <video
+            autoPlay
+            muted
+            loop
+            playsInline
             controls
-            preload="metadata"
+            preload="auto"
             className="w-full rounded-xl border border-neutral-800 shadow-2xl"
             aria-label="Mieru-bot full demo: opening a pull request, automatic review, inline suggestions, applying a fix, and chatting with the bot"
           >
