@@ -52,7 +52,7 @@ export function AnimatedHero() {
         </p>
 
         {/* Hero Video - with proper aspect ratio and placeholder */}
-        <div className={`mb-10 relative w-full max-w-5xl mx-auto transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.6s' }}>
+        <div className={`mb-10 relative w-full max-w-5xl mx-auto transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.6s', backgroundColor: '#333' }}>
           {/* Aspect ratio container to prevent layout shift */}
           <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
             {/* Loading skeleton placeholder */}
@@ -72,6 +72,7 @@ export function AnimatedHero() {
                 if (skeleton) skeleton.style.display = 'none'
               }}
             >
+              <track kind="captions" src="captions.vtt" srclang="en" label="English" />
               <source src="https://v0-mieru-bot.vercel.app/hero-loop.mp4" type="video/mp4" />
             </video>
           </div>
