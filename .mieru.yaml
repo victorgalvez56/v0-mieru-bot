@@ -1,0 +1,31 @@
+# Mieru-bot configuration · 見える
+# https://github.com/apps/mieru-bot
+#
+# Every field is optional. Defaults work great out of the box.
+# This config is committed for the hackathon demo. Adjust freely.
+
+# Auto-review every PR when it opens or gets new commits.
+# Set false to disable and only review on @mieru-bot review.
+auto_review: true
+
+# After every review, also open a stacked fix PR (mieru/fix-pr-N) with
+# all suggested changes pre-applied. Targets the original PR's head
+# branch — merge it into your branch, then merge your branch into base.
+# Useful when you have many fixes or the fixes need refactors.
+auto_fix_pr: true
+
+# Hide noise. Options: blocker, warning, suggestion (default).
+#   - blocker: only show issues that block users (no keyboard, contrast <3:1)
+#   - warning: show blockers + warnings, hide suggestions
+#   - suggestion: show everything (default)
+# severity_threshold: warning
+
+# Glob patterns of files to skip. Tests, legacy code, etc.
+# ignore_paths:
+#   - "**/*.test.tsx"
+#   - "components/legacy/**"
+
+# Specific WCAG rules to skip (when handled elsewhere, e.g. design system).
+# Match against the WCAG citation string ("WCAG 1.4.3" matches "WCAG 2.1 · 1.4.3 Contrast").
+# ignore_rules:
+#   - "WCAG 1.4.3"
