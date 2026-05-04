@@ -39,27 +39,20 @@ export function AnimatedHero() {
       <div className="absolute bottom-20 right-10 w-72 h-72 bg-red-500/10 rounded-full blur-3xl animate-float opacity-20 pointer-events-none dark" style={{ animationDelay: '1s' }} aria-hidden="true" />
       
       <div className="relative z-10 max-w-6xl mx-auto text-center">
-        {/* Badge with animation */}
-        <div className={`mb-6 flex justify-center transition-all duration-1000 ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} style={{ transitionDelay: '0.2s' }}>
-          <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 px-4 py-1.5 text-sm text-neutral-600 dark:text-neutral-300 backdrop-blur-sm hover:border-red-500/50 hover:bg-neutral-100 dark:hover:bg-neutral-900/70 transition-colors">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          </div>
-        </div>
-
         {/* Main headline with staggered animation */}
-        <h1 className={`text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-4 text-balance transition-all duration-1000 text-neutral-900 dark:text-white ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} style={{ transitionDelay: '0.4s' }}>
+        <h1 className={`text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-4 text-balance transition-all duration-1000 text-neutral-900 dark:text-white ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} style={{ transitionDelay: '0.2s' }}>
           <span className="block mb-2">Mieru-bot</span>
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-shimmer">見える</span>
         </h1>
 
         {/* Subheading with animation - with emphasis on key phrases */}
-        <p className={`text-lg sm:text-xl text-neutral-600 dark:text-neutral-300 mb-10 max-w-3xl mx-auto text-balance font-light transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.6s' }}>
+        <p className={`text-lg sm:text-xl text-neutral-600 dark:text-neutral-300 mb-10 max-w-3xl mx-auto text-balance font-light transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.4s' }}>
           Inline accessibility reviews on every pull request.{' '}
           <span className="text-neutral-900 dark:text-white font-semibold">Zero config.</span> <span className="text-neutral-900 dark:text-white font-semibold">Apply fixes with one click.</span>
         </p>
 
         {/* Hero Video */}
-        <div className={`mb-10 relative w-full max-w-5xl mx-auto transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.8s' }}>
+        <div className={`mb-10 relative w-full max-w-5xl mx-auto transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.6s' }}>
           <video
             autoPlay
             muted
@@ -78,7 +71,7 @@ export function AnimatedHero() {
         </div>
 
         {/* CTA Buttons with animation */}
-        <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-1000 mt-12 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '1s' }}>
+        <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-1000 mt-12 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.8s' }}>
           <Button size="lg" asChild className="bg-red-600 text-white hover:bg-red-700 hover:scale-105 transition-all active:scale-95 w-full sm:w-auto shadow-lg hover:shadow-red-600/50">
             <a href="https://github.com/apps/mieru-bot" target="_blank" rel="noopener noreferrer">
               <Github className="w-5 h-5 mr-2" />
@@ -93,13 +86,13 @@ export function AnimatedHero() {
         </div>
 
         {/* Real stats with animation and stagger */}
-        <div className={`mt-12 flex justify-center gap-8 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-8 transition-all duration-1000 ${mounted ? 'opacity-100' : 'opacity-0'}`} style={{ transitionDelay: '1.2s' }}>
+        <div className={`mt-12 flex justify-center gap-8 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-8 transition-all duration-1000 ${mounted ? 'opacity-100' : 'opacity-0'}`} style={{ transitionDelay: '1s' }}>
           {[
             { value: 'Zero', label: 'config' },
             { value: 'One-click', label: 'to apply any fix' },
             { value: 'WCAG 2.1', label: 'AA coverage' }
           ].map((stat, index) => (
-            <div key={index} className="transform transition-all duration-500 hover:scale-110 hover:text-red-400 cursor-default" style={{ transitionDelay: `${1.4 + index * 0.1}s` }}>
+            <div key={index} className="transform transition-all duration-500 hover:scale-110 hover:text-red-400 cursor-default" style={{ transitionDelay: `${1.2 + index * 0.1}s` }}>
               <div className="text-2xl font-semibold text-neutral-900 dark:text-white">{stat.value}</div>
               <div className="text-neutral-600 dark:text-neutral-500">{stat.label}</div>
             </div>
