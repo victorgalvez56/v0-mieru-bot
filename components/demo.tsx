@@ -12,11 +12,10 @@ export function Demo() {
           <video
             controls
             preload="metadata"
-            poster="/mieru-demo-poster.jpg"
             className="w-full rounded-xl border border-neutral-800 shadow-2xl"
             aria-label="Mieru-bot full demo: opening a pull request, automatic review, inline suggestions, applying a fix, and chatting with the bot"
           >
-            <source src="/mieru-demo.mp4" type="video/mp4" />
+            <source src="https://v0-mieru-bot.vercel.app/mieru-demo.mp4" type="video/mp4" />
             Your browser does not support the video tag.
           </video>
           <div

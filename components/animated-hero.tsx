@@ -57,11 +57,10 @@ export function AnimatedHero() {
             loop
             playsInline
             preload="auto"
-            poster="/hero-loop-poster.jpg"
             className="w-full rounded-xl border border-neutral-800 shadow-2xl shadow-red-950/30"
             aria-label="Mieru-bot demo: an inline accessibility suggestion is applied with one click"
           >
-            <source src="/hero-loop.mp4" type="video/mp4" />
+            <source src="https://v0-mieru-bot.vercel.app/hero-loop.mp4" type="video/mp4" />
           </video>
           <div
             className="absolute inset-x-0 -bottom-10 mx-auto h-40 max-w-3xl bg-red-500/10 blur-3xl pointer-events-none -z-10"
