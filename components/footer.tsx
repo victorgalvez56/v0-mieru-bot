@@ -63,7 +63,7 @@ export function Footer() {
           {/* Copyright */}
           <div className="border-t border-neutral-200 dark:border-neutral-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-neutral-600 dark:text-neutral-500">
             <div>© 2026 Mieru-bot · MIT License</div>
-            <div>Built for v0 Build Week 2026 · Bogotá + Lima · 見える</div>
+            <div>Built for Vercel Zero to Agent · 見える</div>
           </div>
         </div>
       </div>

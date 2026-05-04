@@ -43,7 +43,6 @@ export function AnimatedHero() {
         <div className={`mb-6 flex justify-center transition-all duration-1000 ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} style={{ transitionDelay: '0.2s' }}>
           <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900/50 px-4 py-1.5 text-sm text-neutral-600 dark:text-neutral-300 backdrop-blur-sm hover:border-red-500/50 hover:bg-neutral-100 dark:hover:bg-neutral-900/70 transition-colors">
             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span>WCAG 2.1 reviews · powered by GPT-4o</span>
           </div>
         </div>
 
