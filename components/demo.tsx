@@ -1,4 +1,10 @@
+'use client'
+
+import { useState } from 'react'
+
 export function Demo() {
+  const [videoLoaded, setVideoLoaded] = useState(false)
+
   return (
     <section className="relative py-16 sm:py-20 lg:py-24 px-4 sm:px-6 lg:px-8 bg-neutral-950" id="demo" aria-labelledby="demo-heading">
       <div className="max-w-5xl mx-auto text-center">
@@ -9,19 +15,29 @@ export function Demo() {
           55 seconds. Zero config. From PR open to one-click fix.
         </p>
         <div className="relative">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            controls
-            preload="auto"
-            className="w-full rounded-xl border border-neutral-800 shadow-2xl"
-            aria-label="Mieru-bot full demo: opening a pull request, automatic review, inline suggestions, applying a fix, and chatting with the bot"
-          >
-            <source src="https://v0-mieru-bot.vercel.app/mieru-demo.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+          {/* Aspect ratio container to prevent layout shift */}
+          <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+            {/* Loading skeleton placeholder */}
+            <div className={`absolute inset-0 bg-neutral-800 rounded-xl animate-pulse transition-opacity duration-300 ${videoLoaded ? 'opacity-0 pointer-events-none' : 'opacity-100'}`} data-skeleton />
+            
+            {/* Video */}
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              controls
+              preload="auto"
+              className="absolute inset-0 w-full h-full rounded-xl border border-neutral-800 shadow-2xl object-cover"
+              aria-label="Mieru-bot full demo: opening a pull request, automatic review, inline suggestions, applying a fix, and chatting with the bot"
+              onLoadedData={() => setVideoLoaded(true)}
+            >
+              <source src="https://v0-mieru-bot.vercel.app/mieru-demo.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          
+          {/* Glow effect */}
           <div
             className="absolute inset-x-0 -bottom-12 mx-auto h-48 max-w-3xl bg-red-500/5 blur-3xl pointer-events-none -z-10"
             aria-hidden="true"

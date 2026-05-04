@@ -51,19 +51,32 @@ export function AnimatedHero() {
           <span className="text-neutral-900 dark:text-white font-semibold">Zero config.</span> <span className="text-neutral-900 dark:text-white font-semibold">Apply fixes with one click.</span>
         </p>
 
-        {/* Hero Video */}
+        {/* Hero Video - with proper aspect ratio and placeholder */}
         <div className={`mb-10 relative w-full max-w-5xl mx-auto transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{ transitionDelay: '0.6s' }}>
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-2xl shadow-red-950/30 dark:shadow-red-950/30"
-            aria-label="Mieru-bot demo: an inline accessibility suggestion is applied with one click"
-          >
-            <source src="https://v0-mieru-bot.vercel.app/hero-loop.mp4" type="video/mp4" />
-          </video>
+          {/* Aspect ratio container to prevent layout shift */}
+          <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+            {/* Loading skeleton placeholder */}
+            <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-800 rounded-xl animate-pulse" />
+            
+            {/* Video */}
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              className="absolute inset-0 w-full h-full rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-2xl shadow-red-950/30 dark:shadow-red-950/30 object-cover"
+              aria-label="Mieru-bot demo: an inline accessibility suggestion is applied with one click"
+              onLoadedData={(e) => {
+                const skeleton = (e.currentTarget.parentElement?.querySelector('[data-skeleton]') as HTMLElement)
+                if (skeleton) skeleton.style.display = 'none'
+              }}
+            >
+              <source src="https://v0-mieru-bot.vercel.app/hero-loop.mp4" type="video/mp4" />
+            </video>
+          </div>
+          
+          {/* Glow effect */}
           <div
             className="absolute inset-x-0 -bottom-10 mx-auto h-40 max-w-3xl bg-red-500/10 blur-3xl pointer-events-none -z-10"
             aria-hidden="true"
