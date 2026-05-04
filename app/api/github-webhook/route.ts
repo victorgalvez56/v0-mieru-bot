@@ -121,6 +121,15 @@ Other rules:
 
 RULE #1: BE EXHAUSTIVE. Don't stop at 3-5 obvious issues. Review every line, every element, every attribute. If you see 15 violations, report all 15.
 
+RULE #2: BE SPECIFIC AND ACTIONABLE. Skip findings you can't articulate concretely. Examples of findings to NEVER report:
+- "Heading doesn't function semantically as a header" (vague — either the heading level is wrong, or it isn't a heading at all; say which)
+- "Interactive elements lack keyboard operability" without naming the specific element
+- "Could benefit from more descriptive labels" (without proposing a specific label)
+- Generic style/code-quality observations not grounded in WCAG
+- Issues you'd flag only because the file looks busy
+
+If you cannot point at the EXACT line, the EXACT element, AND a SPECIFIC fix, do not include the issue.
+
 REQUIRED CHECKLIST — review each category systematically:
 
 1. IMAGES & MEDIA
@@ -1168,13 +1177,42 @@ async function createFixPR(
         "base64",
       ).toString("utf-8");
 
+      // Detect if file is a Next.js Client Component ("use client" directive)
+      const isClientComponent =
+        /^[\s\S]{0,200}["']use client["'];?/m.test(workingContent);
+
       // Apply each fix sequentially
       for (let idx = 0; idx < fileIssues.length; idx++) {
         const issue = fileIssues[idx];
         const { text } = await generateText({
           model: openai("gpt-4o"),
-          system: `You are a precise code editor. Apply ONE accessibility fix to a file. Return ONLY the complete file content with the fix applied. No markdown, no fences, no explanations. Preserve all other code exactly.`,
-          prompt: `File: ${filename}\n\nCURRENT:\n${workingContent}\n\nFIX TO APPLY:\n- WCAG: ${issue.wcag}\n- Problem: ${issue.problem}\n- Replacement code for line ${issue.line}${issue.end_line ? `-${issue.end_line}` : ""}:\n${issue.suggested_code}\n\nReturn the complete updated file.`,
+          system: `You are a precise code editor working on a Next.js codebase. Apply ONE accessibility fix to a file. Return ONLY the complete file content with the fix applied — no markdown fences, no explanations.
+
+CRITICAL CORRECTNESS RULES (violations break the build or hurt accessibility):
+
+1. NEVER add \`<style jsx>\` or \`<style jsx global>\`. They are styled-jsx, which only works in Client Components and breaks Server Components at build time. For CSS changes, edit a .css file or add a Tailwind class instead.
+
+2. NEVER introduce client-only React APIs (useState, useEffect, useRef, useContext, useMemo, useCallback, event handlers other than form actions, browser globals like \`window\` or \`document\` or \`matchMedia\`) into a file that does NOT start with \`"use client"\`. The current file ${isClientComponent ? "IS" : "is NOT"} a Client Component. ${isClientComponent ? "" : "If the fix would require client APIs, prefer a CSS-only solution (Tailwind motion-reduce: variant, @media query in a CSS file, etc.)."}
+
+3. NEVER add ARIA roles you can't verify are correct in context:
+   - \`role="menuitem"\` only works inside a parent with \`role="menu"\` or \`role="menubar"\`. Don't add it to plain links.
+   - \`role="button"\` only on elements that don't already act as buttons (don't add to \`<button>\` itself).
+   - \`role="dialog"\` requires \`aria-modal\` and a label.
+   - When in doubt, use the right HTML element (\`<button>\`, \`<nav>\`, \`<main>\`) instead of an ARIA role.
+
+4. For \`prefers-reduced-motion\` fixes, prefer in this order:
+   a) Tailwind's \`motion-reduce:\` variant (e.g. \`motion-reduce:transition-none motion-reduce:animate-none\`)
+   b) A CSS \`@media (prefers-reduced-motion: reduce) { ... }\` block in an existing .css file
+   c) Only if (a) and (b) impossible AND file is already a Client Component, use \`window.matchMedia("(prefers-reduced-motion: reduce)").matches\` inside a useEffect
+
+5. NEVER convert a \`<div>\` to \`<button>\` if the surrounding code shows it has children that include block-level elements (\`<div>\`, \`<p>\`, \`<h1>\`-\`<h6>\`, \`<section>\`, etc.) — that produces invalid HTML. Add \`role="button"\`, \`tabIndex={0}\`, and \`onKeyDown\` instead.
+
+6. Preserve every other line, prop, style, and import exactly as-is. Maintain original code style (indentation, quotes, semicolons, JSX formatting).
+
+7. If the suggested replacement would clearly conflict with rules 1-5, apply a SAFER variant of the same fix. If no safe fix exists, return the file UNCHANGED.
+
+Return only the raw file content, ready to be saved to disk.`,
+          prompt: `File: ${filename}\nFile is a ${isClientComponent ? "Client" : "Server"} Component.\n\nCURRENT:\n${workingContent}\n\nFIX TO APPLY:\n- WCAG: ${issue.wcag}\n- Problem: ${issue.problem}\n- Replacement code for line ${issue.line}${issue.end_line ? `-${issue.end_line}` : ""}:\n${issue.suggested_code}\n\nReturn the complete updated file. Verify the fix obeys the critical rules above.`,
         });
         workingContent = text.trim();
         if (workingContent.startsWith("```")) {
