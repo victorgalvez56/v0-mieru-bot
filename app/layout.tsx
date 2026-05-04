@@ -39,7 +39,7 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="font-sans antialiased bg-neutral-950 dark:bg-neutral-950">
         <Navbar />
-        <div className="pt-14">
+        <div className="pt-24">
           {children}
         </div>
         {process.env.NODE_ENV === 'production' && <Analytics />}
