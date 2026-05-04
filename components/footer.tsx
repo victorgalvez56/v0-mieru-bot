@@ -8,6 +8,13 @@ export function Footer() {
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute bottom-0 right-0 w-96 h-96 bg-red-600/20 rounded-full blur-3xl" />
       </div>
+      <style jsx>{`
+        @media (prefers-reduced-motion: reduce) {
+          .absolute.inset-0.opacity-10 {
+            animation: none;
+          }
+        }
+      `}</style>
 
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="grid md:grid-cols-2 gap-12 mb-12">
@@ -52,9 +59,9 @@ export function Footer() {
             <div>
               <h4 className="text-sm font-semibold text-white mb-4 text-red-400">Product</h4>
               <ul className="space-y-2 text-sm text-neutral-400">
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Features</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Pricing</a></li>
-                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200">Roadmap</a></li>
+                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200" role="menuitem">Features</a></li>
+                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200" role="menuitem">Pricing</a></li>
+                <li><a href="#" className="hover:text-red-400 hover:translate-x-1 inline-block transition-all duration-200" role="menuitem">Roadmap</a></li>
               </ul>
             </div>
             <div>
