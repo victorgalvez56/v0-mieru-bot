@@ -8,14 +8,18 @@ export function HowItWorks() {
   const [visibleSteps, setVisibleSteps] = useState([false, false, false])
 
   useEffect(() => {
-    setMounted(true)
-    const timers = [
-      setTimeout(() => setVisibleSteps(prev => [true, prev[1], prev[2]]), 200),
-      setTimeout(() => setVisibleSteps(prev => [prev[0], true, prev[2]]), 400),
-      setTimeout(() => setVisibleSteps(prev => [prev[0], prev[1], true]), 600),
-    ]
-    return () => timers.forEach(t => clearTimeout(t))
+    const isReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setMounted(true);
+    if (!isReducedMotion) {
+      const timers = [
+        setTimeout(() => setVisibleSteps(prev => [true, prev[1], prev[2]]), 200),
+        setTimeout(() => setVisibleSteps(prev => [prev[0], true, prev[2]]), 400),
+        setTimeout(() => setVisibleSteps(prev => [prev[0], prev[1], true]), 600),
+      ];
+      return () => timers.forEach(t => clearTimeout(t));
+    }
   }, [])
+  
   const steps = [
     {
       icon: MessageSquare,
