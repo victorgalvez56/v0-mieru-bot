@@ -29,7 +29,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="fixed top-0 w-full bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 backdrop-blur-sm z-50">
+    <header className="fixed top-0 w-full bg-white dark:bg-neutral-950 backdrop-blur-sm z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-end gap-3">
         {/* GitHub Stars */}
         {stars !== null && (
